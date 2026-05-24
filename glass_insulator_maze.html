@@ -1,0 +1,1765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>To the National!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;image-rendering:pixelated}
+html,body{height:100%;overflow:hidden}
+body{background:#0d0d1a;font-family:'Press Start 2P',monospace;display:flex;justify-content:center;padding:8px 10px;height:100vh}
+#wrap{display:flex;flex-direction:column;gap:6px;width:100%;height:100%}
+#topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;min-height:48px;background:#12122a;border:2px solid #3a3a6a;padding:6px 12px}
+#game-title{font-family:'Press Start 2P',monospace;font-size:clamp(9px,1.7vw,20px);color:#f8e84a;white-space:nowrap;line-height:1.5;flex-shrink:0;text-shadow:2px 2px #b86a00}
+#hud{display:flex;gap:16px;font-size:clamp(7px,0.9vw,10px);color:#a0e0ff;flex-wrap:wrap;justify-content:flex-end;align-items:center;flex-shrink:0}
+#hud span{color:#888}
+#hud strong{color:#f8e84a;font-family:'Press Start 2P',monospace}
+#timer{font-variant-numeric:tabular-nums;color:#f8e84a}
+#canvas-wrap{flex:1 1 0;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}
+#maze-canvas{display:block;cursor:default;border:3px solid #3a3a6a;image-rendering:pixelated}
+#msg{font-size:clamp(8px,1vw,11px);color:#a0e0ff;min-height:16px;text-align:left;align-self:flex-start;line-height:2;flex:1;padding:0 8px}
+#bottom-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;width:100%}
+.dpad{display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px);gap:3px;flex-shrink:0}
+.dpad button{width:44px;height:44px;font-size:16px;line-height:1;border:2px solid #3a3a6a;border-radius:0;background:#12122a;color:#f8e84a;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.05s;font-family:system-ui,sans-serif;padding:0}
+.dpad button:hover{background:#1e1e4a}
+.dpad button:active{background:#2a2a6a;transform:scale(0.93)}
+.dpad .empty{visibility:hidden}
+#btn-restart{font-size:clamp(7px,0.85vw,9px);padding:8px 18px;border:2px solid #3a3a6a;border-radius:0;background:#12122a;color:#a0e0ff;cursor:pointer;font-family:'Press Start 2P',monospace;flex-shrink:0}
+#btn-restart:hover{background:#1e1e4a;color:#f8e84a}
+#ins-tray{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;background:#12122a;border:2px solid #3a3a6a;padding:6px 12px;min-height:40px;align-items:center;align-self:center}
+.ins-slot{width:26px;height:26px;border:1px solid #3a3a6a;display:flex;align-items:center;justify-content:center;background:#0d0d1a;transition:background 0.2s;border-radius:0}
+.ins-slot.got{background:#0a2a1a;border-color:#1D9E75}
+#music-btn{font-size:clamp(7px,0.85vw,9px);padding:5px 10px;border:2px solid #3a3a6a;border-radius:0;background:#12122a;cursor:pointer;color:#a0e0ff;font-family:'Press Start 2P',monospace}
+#music-btn:hover{background:#1e1e4a;color:#f8e84a}
+/* Start screen */
+#start-screen{position:fixed;inset:0;background:#0a0a1a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;z-index:100;overflow:hidden}
+#start-screen.hidden{display:none}
+#start-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated}
+#diff-row{position:absolute;bottom:0;left:0;right:0;display:flex;gap:16px;flex-wrap:wrap;justify-content:center;align-items:center;z-index:101;pointer-events:all}
+.diff-btn{font-family:'Press Start 2P',monospace;font-size:clamp(9px,1.2vw,14px);padding:14px 28px;border:3px solid #3a3a6a;border-radius:0;background:#12122a;color:#f8e84a;cursor:pointer;transition:background 0.08s}
+.diff-btn:hover{background:#2a2a6a;color:#fff;border-color:#a0e0ff}
+.diff-btn.easy{color:#5DCAA5;border-color:#1D9E75}
+.diff-btn.hard{color:#ff6060;border-color:#8a0000}
+.diff-btn.notimer{color:#a0e0ff;border-color:#3a3a6a}
+</style>
+</head>
+<body>
+<div id="start-screen">
+  <canvas id="start-canvas"></canvas>
+  <div id="diff-row">
+    <button class="diff-btn easy" id="btn-easy">EASY (1:30)</button>
+    <button class="diff-btn hard" id="btn-hard">HARD (1:00)</button>
+    <button class="diff-btn notimer" id="btn-notimer">NO TIMER</button>
+  </div>
+</div>
+<div id="wrap">
+  <div id="topbar">
+    <div id="game-title">TO THE<br>NATIONAL!</div>
+    <div id="hud">
+      <span>INSULATORS: <strong id="count">0 / 10</strong></span>
+      <span>STEPS: <strong id="steps">0</strong></span>
+      <span id="timer-wrap">TIME: <strong id="timer">3:00</strong></span>
+      <button id="music-btn">&#9834; ON</button>
+    </div>
+  </div>
+  <div id="ins-tray"></div>
+  <div id="canvas-wrap"><canvas id="maze-canvas" tabindex="0"></canvas></div>
+  <div id="bottom-row">
+    <div id="msg">Arrow keys or D-pad · Collect all 10 insulators · Reach the checkered flag!</div>
+    <div class="dpad">
+      <div class="empty"></div><button id="btn-up">&#9650;</button><div class="empty"></div>
+      <button id="btn-left">&#9664;</button><div class="empty"></div><button id="btn-right">&#9654;</button>
+      <div class="empty"></div><button id="btn-down">&#9660;</button><div class="empty"></div>
+    </div>
+    <button id="btn-restart">&#8635; NEW MAZE</button>
+  </div>
+</div>
+
+<script>
+// ─── Dimensions (computed from browser window) ───────────────────────────────
+// UI chrome above the canvas: h1 ~28, hud ~34, tray ~44, msg ~22, dpad ~148, btn ~34,
+// gaps 6×6=36, padding 8+8=16  → ~362px reserved. We subtract that from innerHeight.
+// Maze must have odd col/row counts for the recursive-backtracker to work cleanly.
+const NUM_INS=10;
+const canvas=document.getElementById('maze-canvas');
+const ctx=canvas.getContext('2d');
+let CELL, COLS, ROWS;
+let game, timerInterval=null, musicOn=true;
+let difficulty='easy'; // 'easy'=180s, 'hard'=60s, 'notimer'=no limit
+function diffSeconds(){return difficulty==='hard'?60:difficulty==='easy'?90:null;}
+
+function computeDimensions(){
+  const UI_H=362; // px reserved for chrome above/below canvas
+  const availW=window.innerWidth-24;  // 12px padding each side
+  const availH=Math.max(200, window.innerHeight-UI_H);
+  // Pick cell size so maze fills available space. Try sizes 16–36.
+  let bestCell=16;
+  for(let sz=36;sz>=14;sz--){
+    const c=Math.floor(availW/sz);
+    const r=Math.floor(availH/sz);
+    // Need at least 20×12, must be odd
+    if(c>=20&&r>=12){bestCell=sz;break;}
+  }
+  CELL=bestCell;
+  // Force odd counts (walls need even-indexed passages)
+  COLS=Math.floor(availW/CELL)|1; if(COLS%2===0)COLS--;
+  ROWS=Math.floor(availH/CELL)|1; if(ROWS%2===0)ROWS--;
+  canvas.width=COLS*CELL;
+  canvas.height=ROWS*CELL;
+}
+computeDimensions();
+
+// ─── Audio context ───────────────────────────────────────────────────────────
+let AC=null;
+function ac(){
+  if(!AC) AC=new(window.AudioContext||window.webkitAudioContext)();
+  if(AC.state==='suspended') AC.resume();
+  return AC;
+}
+
+// ─── Cha-ching ───────────────────────────────────────────────────────────────
+function playChaChingWithSilence(){
+  try{
+    const a=ac(), t=a.currentTime;
+    function metalHit(w,f,d,g){
+      const o=a.createOscillator(),gn=a.createGain(),ds=a.createWaveShaper();
+      const cv=new Float32Array(256);for(let i=0;i<256;i++){const x=i/128-1;cv[i]=x<0?-Math.pow(-x,0.5):Math.pow(x,0.5);}
+      ds.curve=cv;o.type='sawtooth';o.frequency.setValueAtTime(f,w);o.frequency.exponentialRampToValueAtTime(f*0.4,w+d);
+      gn.gain.setValueAtTime(g,w);gn.gain.exponentialRampToValueAtTime(0.001,w+d);
+      o.connect(ds);ds.connect(gn);gn.connect(a.destination);o.start(w);o.stop(w+d+0.01);
+    }
+    function bell(w,f,d,g){
+      const o=a.createOscillator(),gn=a.createGain();o.type='sine';o.frequency.setValueAtTime(f,w);
+      gn.gain.setValueAtTime(g,w);gn.gain.exponentialRampToValueAtTime(0.001,w+d);
+      o.connect(gn);gn.connect(a.destination);o.start(w);o.stop(w+d+0.01);
+    }
+    metalHit(t,1200,0.06,0.3);metalHit(t+0.01,900,0.07,0.2);metalHit(t+0.02,1500,0.05,0.15);
+    bell(t+0.09,1760,0.55,0.45);bell(t+0.09,2200,0.5,0.25);bell(t+0.12,3520,0.35,0.15);
+  }catch(e){}
+}
+
+// ─── Jazzy 80s MIDI theme ────────────────────────────────────────────────────
+// Instruments: electric piano (sine+harmonics), bass (triangle), hi-hat (noise),
+// kick (sine sweep), muted brass stabs (sawtooth + filter)
+let musicNodes=[], musicLoop=null, musicBeat=0;
+
+// Jazz chords in F major — 80s smooth jazz feel
+// Each entry: [root, third, fifth, seventh] in MIDI note numbers
+const CHORDS=[
+  [53,57,60,64], // Fmaj7  (F A C E)
+  [55,59,62,65], // Gm7    (G Bb D F)
+  [57,60,64,67], // Am7    (A C E G)
+  [58,62,65,69], // Bbmaj7 (Bb D F A)
+  [53,57,60,64], // Fmaj7
+  [60,64,67,71], // Cmaj7  (C E G B)
+  [55,59,62,65], // Gm7
+  [57,61,64,67], // A7     (A C# E G) — turnaround
+];
+
+// Walking bassline roots (one per bar, quarter note offsets)
+const BASS_ROOTS=[53,55,57,58,53,60,55,57];
+
+function midiToFreq(n){return 440*Math.pow(2,(n-69)/12);}
+
+function stopMusic(){
+  if(musicLoop){clearInterval(musicLoop);musicLoop=null;}
+  musicNodes.forEach(n=>{try{n.stop();}catch(e){}});
+  musicNodes=[];
+}
+
+function startMusic(){
+  if(!musicOn) return;
+  try{ ac(); }catch(e){return;}
+  stopMusic();
+  const a=ac();
+  const BPM=116, BEAT_MS=60000/BPM;
+  musicBeat=0;
+
+  function scheduleBeat(){
+    if(!musicOn) return;
+    const beat=musicBeat%32; // 8 bars × 4 beats
+    const bar=Math.floor(beat/4);
+    const beatInBar=beat%4;
+    const t=a.currentTime+0.01;
+    const chord=CHORDS[bar];
+    const bassRoot=BASS_ROOTS[bar];
+
+    // ── Kick drum (beats 0 and 2 of bar) ──
+    if(beatInBar===0||beatInBar===2){
+      const o=a.createOscillator(),g=a.createGain();
+      o.type='sine';o.frequency.setValueAtTime(160,t);o.frequency.exponentialRampToValueAtTime(40,t+0.12);
+      g.gain.setValueAtTime(0.55,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.18);
+      o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+0.2);musicNodes.push(o);
+    }
+
+    // ── Snare (beats 1 and 3) ──
+    if(beatInBar===1||beatInBar===3){
+      const buf=a.createBuffer(1,a.sampleRate*0.12,a.sampleRate);
+      const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1);
+      const src=a.createBufferSource(),g=a.createGain(),f=a.createBiquadFilter();
+      f.type='bandpass';f.frequency.value=1800;f.Q.value=0.8;
+      src.buffer=buf;g.gain.setValueAtTime(0.22,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.12);
+      src.connect(f);f.connect(g);g.connect(a.destination);src.start(t);musicNodes.push(src);
+    }
+
+    // ── Hi-hat (every beat, swing on off-beats) ──
+    {
+      const buf=a.createBuffer(1,a.sampleRate*0.04,a.sampleRate);
+      const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1);
+      const src=a.createBufferSource(),g=a.createGain(),f=a.createBiquadFilter();
+      f.type='highpass';f.frequency.value=7000;
+      src.buffer=buf;g.gain.setValueAtTime(0.09,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.04);
+      src.connect(f);f.connect(g);g.connect(a.destination);src.start(t);musicNodes.push(src);
+      // swing 8th
+      const t2=t+BEAT_MS*0.0006;
+      const src2=a.createBufferSource(),g2=a.createGain(),f2=a.createBiquadFilter();
+      f2.type='highpass';f2.frequency.value=7000;
+      src2.buffer=buf;g2.gain.setValueAtTime(0.055,t2);g2.gain.exponentialRampToValueAtTime(0.001,t2+0.03);
+      src2.connect(f2);f2.connect(g2);g2.connect(a.destination);src2.start(t2);musicNodes.push(src2);
+    }
+
+    // ── Electric piano chord (Rhodes-ish: sine fundamental + 2nd harmonic) ──
+    if(beatInBar===0){
+      chord.forEach((note,idx)=>{
+        const freq=midiToFreq(note);
+        [1,2,3].forEach((harm,hi)=>{
+          const o=a.createOscillator(),g=a.createGain();
+          o.type='sine';o.frequency.value=freq*harm;
+          const vol=[0.14,0.07,0.02][hi]/(idx+1)*0.9;
+          const dur=BEAT_MS*3.6/1000;
+          g.gain.setValueAtTime(vol,t);g.gain.setValueAtTime(vol*0.5,t+0.05);g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+          o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+dur+0.05);musicNodes.push(o);
+        });
+      });
+    }
+
+    // ── Smooth bass (triangle, walking quarter notes) ──
+    {
+      // Walk: root, up a 5th, up a 3rd, chromatic approach to next root
+      const walkOffsets=[0,7,4,1];
+      const baseNote=bassRoot+walkOffsets[beatInBar];
+      const freq=midiToFreq(baseNote-12); // one octave down
+      const o=a.createOscillator(),g=a.createGain();
+      o.type='triangle';o.frequency.value=freq;
+      const dur=BEAT_MS*0.85/1000;
+      g.gain.setValueAtTime(0.28,t);g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+      o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+dur+0.02);musicNodes.push(o);
+    }
+
+    // ── Brass stab (beats 0 and 2 occasionally, sawtooth + filter) ──
+    if((beatInBar===0||beatInBar===2)&&beat%8===0){
+      const note=chord[2]; // fifth of chord
+      const freq=midiToFreq(note+12);
+      const o=a.createOscillator(),g=a.createGain(),f=a.createBiquadFilter();
+      o.type='sawtooth';o.frequency.value=freq;
+      f.type='lowpass';f.frequency.setValueAtTime(3000,t);f.frequency.exponentialRampToValueAtTime(800,t+0.08);
+      g.gain.setValueAtTime(0.12,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.12);
+      o.connect(f);f.connect(g);g.connect(a.destination);o.start(t);o.stop(t+0.15);musicNodes.push(o);
+    }
+
+    musicBeat++;
+    // Trim dead nodes periodically
+    if(musicBeat%16===0) musicNodes=musicNodes.filter(n=>{try{return n.context.state!=='closed';}catch(e){return false;}});
+  }
+
+  scheduleBeat();
+  musicLoop=setInterval(scheduleBeat, BEAT_MS);
+}
+
+// ─── Insulator drawing ───────────────────────────────────────────────────────
+const INS_TYPES=['cd112','pony','threadless','mickey','hemingray'];
+const INS_COLORS={
+  cd112:     {fill:'#5DCAA5',dome:'#1D9E75',cap:'#9FE1CB',stroke:'#0F6E56',pin:'#085041',hl:'rgba(255,255,255,0.45)'},
+  pony:      {fill:'#378ADD',dome:'#185FA5',cap:'#B5D4F4',stroke:'#0C447C',pin:'#042C53',hl:'rgba(255,255,255,0.45)'},
+  threadless:{fill:'#EF9F27',dome:'#BA7517',cap:'#FAC775',stroke:'#854F0B',pin:'#633806',hl:'rgba(255,255,255,0.4)'},
+  mickey:    {fill:'#D4537E',dome:'#993556',cap:'#ED93B1',stroke:'#72243E',pin:'#4B1528',hl:'rgba(255,255,255,0.4)'},
+  hemingray: {fill:'#AFA9EC',dome:'#534AB7',cap:'#CECBF6',stroke:'#3C3489',pin:'#26215C',hl:'rgba(255,255,255,0.45)'},
+};
+
+const insCache={};
+function buildInsulatorCanvas(type,collected){
+  const key=type+(collected?'_c':'');
+  if(insCache[key])return insCache[key];
+  const sz=CELL-4;
+  const oc=document.createElement('canvas');oc.width=sz;oc.height=sz;
+  const c=oc.getContext('2d');
+  if(collected){c.globalAlpha=0.22;drawInsShape(c,type,INS_COLORS[type],sz);c.globalAlpha=1;}
+  else drawInsShape(c,type,INS_COLORS[type],sz);
+  insCache[key]=oc;return oc;
+}
+
+function drawInsShape(c,type,col,sz){
+  const s=sz/22;c.save();c.scale(s,s);
+  if(type==='cd112'){
+    c.beginPath();c.moveTo(1,20);c.quadraticCurveTo(1,17,4,16);c.lineTo(4,14);c.quadraticCurveTo(1,13,1,11);c.quadraticCurveTo(1,8,9,8);c.quadraticCurveTo(17,8,17,11);c.quadraticCurveTo(17,13,14,14);c.lineTo(14,16);c.quadraticCurveTo(17,17,17,20);c.closePath();
+    c.fillStyle=col.fill;c.strokeStyle=col.stroke;c.lineWidth=1.2;c.fill();c.stroke();
+    c.beginPath();c.moveTo(4,14);c.quadraticCurveTo(4,10,9,6);c.quadraticCurveTo(14,10,14,14);c.closePath();
+    c.fillStyle=col.dome;c.strokeStyle=col.stroke;c.lineWidth=1;c.fill();c.stroke();
+    c.beginPath();c.ellipse(9,6,3,2,0,0,Math.PI*2);c.fillStyle=col.cap;c.strokeStyle=col.stroke;c.lineWidth=0.8;c.fill();c.stroke();
+    c.beginPath();c.ellipse(9,20,2.5,1.2,0,0,Math.PI*2);c.fillStyle=col.pin;c.strokeStyle=col.stroke;c.lineWidth=0.8;c.fill();c.stroke();
+    c.beginPath();c.moveTo(6,8);c.quadraticCurveTo(7,6,8,7);c.quadraticCurveTo(7,9,6,8);c.closePath();c.fillStyle=col.hl;c.fill();
+  } else if(type==='pony'){
+    c.beginPath();c.moveTo(1,21);c.quadraticCurveTo(1,17,5,16);c.lineTo(5,14);c.quadraticCurveTo(2,13,2,11);c.quadraticCurveTo(2,9,9,9);c.quadraticCurveTo(16,9,16,11);c.quadraticCurveTo(16,13,13,14);c.lineTo(13,16);c.quadraticCurveTo(17,17,17,21);c.closePath();
+    c.fillStyle=col.fill;c.strokeStyle=col.stroke;c.lineWidth=1.2;c.fill();c.stroke();
+    c.beginPath();c.moveTo(3,16);c.quadraticCurveTo(3,13,9,13);c.quadraticCurveTo(15,13,15,16);c.strokeStyle=col.stroke;c.lineWidth=0.6;c.stroke();
+    c.beginPath();c.moveTo(5,14);c.quadraticCurveTo(5,10,9,7);c.quadraticCurveTo(13,10,13,14);c.closePath();
+    c.fillStyle=col.dome;c.strokeStyle=col.stroke;c.lineWidth=1;c.fill();c.stroke();
+    c.beginPath();c.ellipse(9,7,2.5,2,0,0,Math.PI*2);c.fillStyle=col.cap;c.strokeStyle=col.stroke;c.lineWidth=0.8;c.fill();c.stroke();
+    c.beginPath();c.ellipse(9,21,2.5,1.1,0,0,Math.PI*2);c.fillStyle=col.pin;c.strokeStyle=col.stroke;c.lineWidth=0.8;c.fill();c.stroke();
+    c.beginPath();c.moveTo(6.5,9);c.quadraticCurveTo(7.5,7,8.5,8);c.quadraticCurveTo(7.5,10,6.5,9);c.closePath();c.fillStyle=col.hl;c.fill();
+  } else if(type==='threadless'){
+    c.beginPath();c.moveTo(3,21);c.lineTo(3,15);c.quadraticCurveTo(1,14,1,12);c.quadraticCurveTo(1,9,9,9);c.quadraticCurveTo(17,9,17,12);c.quadraticCurveTo(17,14,15,15);c.lineTo(15,21);c.closePath();
+    c.fillStyle=col.fill;c.strokeStyle=col.stroke;c.lineWidth=1.2;c.fill();c.stroke();
+    c.beginPath();c.moveTo(3,17);c.lineTo(15,17);c.strokeStyle=col.stroke;c.lineWidth=0.6;c.stroke();
+    c.beginPath();c.moveTo(3,15);c.quadraticCurveTo(3,10,9,7);c.quadraticCurveTo(15,10,15,15);c.closePath();
+    c.fillStyle=col.dome;c.strokeStyle=col.stroke;c.lineWidth=1;c.fill();c.stroke();
+    c.beginPath();c.ellipse(9,7,3,2.5,0,0,Math.PI*2);c.fillStyle=col.cap;c.strokeStyle=col.stroke;c.lineWidth=0.8;c.fill();c.stroke();
+    c.fillStyle=col.pin;c.strokeStyle=col.stroke;c.lineWidth=0.6;
+    c.beginPath();if(c.roundRect)c.roundRect(6.5,20,5,1.5,0.5);else c.rect(6.5,20,5,1.5);c.fill();c.stroke();
+    c.beginPath();c.moveTo(6,10);c.quadraticCurveTo(7,8,8,9);c.quadraticCurveTo(7,11,6,10);c.closePath();c.fillStyle=col.hl;c.fill();
+  } else if(type==='mickey'){
+    c.beginPath();c.moveTo(1,21);c.quadraticCurveTo(1,17,5,16);c.lineTo(5,14);c.quadraticCurveTo(2,13,2,11);c.quadraticCurveTo(2,9,9,9);c.quadraticCurveTo(16,9,16,11);c.quadraticCurveTo(16,13,13,14);c.lineTo(13,16);c.quadraticCurveTo(17,17,17,21);c.closePath();
+    c.fillStyle=col.fill;c.strokeStyle=col.stroke;c.lineWidth=1.2;c.fill();c.stroke();
+    c.beginPath();c.moveTo(5,14);c.quadraticCurveTo(5,10,9,8);c.quadraticCurveTo(13,10,13,14);c.closePath();
+    c.fillStyle=col.dome;c.strokeStyle=col.stroke;c.lineWidth=1;c.fill();c.stroke();
+    c.beginPath();c.arc(6,8,2.8,0,Math.PI*2);c.fillStyle=col.cap;c.strokeStyle=col.stroke;c.lineWidth=0.9;c.fill();c.stroke();
+    c.beginPath();c.arc(12,8,2.8,0,Math.PI*2);c.fillStyle=col.cap;c.strokeStyle=col.stroke;c.lineWidth=0.9;c.fill();c.stroke();
+    c.beginPath();c.ellipse(9,21,2.5,1.1,0,0,Math.PI*2);c.fillStyle=col.pin;c.strokeStyle=col.stroke;c.lineWidth=0.8;c.fill();c.stroke();
+    c.beginPath();c.moveTo(7,10);c.quadraticCurveTo(7.8,8,8.8,9);c.quadraticCurveTo(8,11,7,10);c.closePath();c.fillStyle=col.hl;c.fill();
+  } else if(type==='hemingray'){
+    c.beginPath();c.moveTo(2,21);c.quadraticCurveTo(1,18,4,17);c.lineTo(4,15.5);c.quadraticCurveTo(1,14.5,1.5,12);c.quadraticCurveTo(1.5,9.5,9,9.5);c.quadraticCurveTo(16.5,9.5,16.5,12);c.quadraticCurveTo(17,14.5,14,15.5);c.lineTo(14,17);c.quadraticCurveTo(17,18,16,21);c.closePath();
+    c.fillStyle=col.fill;c.strokeStyle=col.stroke;c.lineWidth=1.2;c.fill();c.stroke();
+    c.beginPath();c.moveTo(2.5,18.5);c.quadraticCurveTo(9,19.5,15.5,18.5);c.strokeStyle=col.stroke;c.lineWidth=0.6;c.stroke();
+    c.beginPath();c.moveTo(4,15.5);c.quadraticCurveTo(4,11,9,6.5);c.quadraticCurveTo(14,11,14,15.5);c.closePath();
+    c.fillStyle=col.dome;c.strokeStyle=col.stroke;c.lineWidth=1;c.fill();c.stroke();
+    c.beginPath();c.ellipse(9,6.5,2.8,2.2,0,0,Math.PI*2);c.fillStyle=col.cap;c.strokeStyle=col.stroke;c.lineWidth=0.8;c.fill();c.stroke();
+    c.beginPath();c.ellipse(9,21,2.5,1.1,0,0,Math.PI*2);c.fillStyle=col.pin;c.strokeStyle=col.stroke;c.lineWidth=0.8;c.fill();c.stroke();
+    c.beginPath();c.moveTo(6,8.5);c.quadraticCurveTo(7,6.5,8,7.5);c.quadraticCurveTo(7,9.5,6,8.5);c.closePath();c.fillStyle=col.hl;c.fill();
+  }
+  c.restore();
+}
+INS_TYPES.forEach(t=>{buildInsulatorCanvas(t,false);buildInsulatorCanvas(t,true);});
+
+// ─── Checkered flag exit ─────────────────────────────────────────────────────
+function drawExit(r,c){
+  const cx=c*CELL+CELL/2, cy=r*CELL+CELL/2;
+  const fw=CELL*0.72, fh=CELL*0.52;
+  const fx=cx-fw*0.1, fy=cy-fh*0.55;
+  const sq=fw/4, rows=3, cols=4;
+  // flag background white first
+  ctx.fillStyle='#fff';
+  ctx.fillRect(fx,fy,fw,fh);
+  // checkers
+  for(let gr=0;gr<rows;gr++){
+    for(let gc=0;gc<cols;gc++){
+      if((gr+gc)%2===0){
+        ctx.fillStyle='#1a1a1a';
+        ctx.fillRect(fx+gc*sq,fy+gr*(fh/rows),sq,fh/rows);
+      }
+    }
+  }
+  // flag border
+  ctx.strokeStyle='#555';ctx.lineWidth=0.8;
+  ctx.strokeRect(fx,fy,fw,fh);
+  // flagpole
+  ctx.strokeStyle='#888';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(fx,fy);ctx.lineTo(fx,cy+fh*0.6);ctx.stroke();
+}
+
+// ─── Shovel player ───────────────────────────────────────────────────────────
+function drawPlayer(r,c){
+  const x=c*CELL+CELL/2, y=r*CELL+CELL/2;
+  const sz=CELL*0.85;
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.rotate(Math.PI*0.22); // tilt the shovel ~40 degrees
+
+  const s=sz/20;
+  ctx.scale(s,s);
+
+  // Handle (long rectangle, wood-brown)
+  ctx.fillStyle='#8B5E3C';ctx.strokeStyle='#5C3D1E';ctx.lineWidth=0.8/s;
+  ctx.beginPath();ctx.roundRect(-1.2,-10,2.4,16,0.8);ctx.fill();ctx.stroke();
+
+  // Handle grip rings
+  ctx.fillStyle='#6B4226';
+  ctx.beginPath();ctx.roundRect(-1.5,-10,3,1.8,0.4);ctx.fill();ctx.stroke();
+  ctx.beginPath();ctx.roundRect(-1.5,4.5,3,1.5,0.4);ctx.fill();ctx.stroke();
+
+  // D-grip at top
+  ctx.fillStyle='#A0724F';ctx.strokeStyle='#5C3D1E';ctx.lineWidth=0.7/s;
+  ctx.beginPath();ctx.arc(0,-10,2.2,Math.PI,0);ctx.stroke();
+  ctx.beginPath();ctx.roundRect(-2.2,-11.5,4.4,3,1);ctx.fill();ctx.stroke();
+
+  // Blade collar (where handle meets blade)
+  ctx.fillStyle='#607080';ctx.strokeStyle='#3a4a55';ctx.lineWidth=0.8/s;
+  ctx.beginPath();ctx.roundRect(-2.2,5.5,4.4,2.5,0.5);ctx.fill();ctx.stroke();
+
+  // Shovel blade (spade shape)
+  ctx.fillStyle='#5B7FA6';ctx.strokeStyle='#2d4f72';ctx.lineWidth=0.9/s;
+  ctx.beginPath();
+  ctx.moveTo(-4.5,7.5);
+  ctx.lineTo(-4.5,13);
+  ctx.quadraticCurveTo(-4.5,19,0,19.5);
+  ctx.quadraticCurveTo(4.5,19,4.5,13);
+  ctx.lineTo(4.5,7.5);
+  ctx.closePath();
+  ctx.fill();ctx.stroke();
+
+  // Blade highlight
+  ctx.fillStyle='rgba(255,255,255,0.25)';
+  ctx.beginPath();ctx.moveTo(-2,8.5);ctx.lineTo(-1,8.5);ctx.lineTo(-1,16);ctx.quadraticCurveTo(-1.5,18,-2.5,16.5);ctx.quadraticCurveTo(-3,14,-2,8.5);ctx.closePath();ctx.fill();
+
+  // Blade edge (bottom shine)
+  ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=0.8/s;
+  ctx.beginPath();ctx.moveTo(-3.5,13.5);ctx.quadraticCurveTo(0,18.5,3.5,13.5);ctx.stroke();
+
+  ctx.restore();
+}
+
+// ─── Maze generation ─────────────────────────────────────────────────────────
+function initMaze(){
+  const grid=[];
+  for(let r=0;r<ROWS;r++){grid[r]=[];for(let c=0;c<COLS;c++)grid[r][c]=1;}
+  function carve(r,c){
+    grid[r][c]=0;
+    const dirs=[[0,2],[0,-2],[2,0],[-2,0]].sort(()=>Math.random()-0.5);
+    for(const[dr,dc]of dirs){const nr=r+dr,nc=c+dc;if(nr>0&&nr<ROWS-1&&nc>0&&nc<COLS-1&&grid[nr][nc]===1){grid[r+dr/2][c+dc/2]=0;carve(nr,nc);}}
+  }
+  carve(1,1);
+  const extraLoops=Math.floor(ROWS*COLS*0.04);
+  for(let i=0;i<extraLoops;i++){
+    const r=1+Math.floor(Math.random()*(ROWS-2));
+    const c=1+Math.floor(Math.random()*(COLS-2));
+    if(grid[r][c]===1){
+      let open=0;
+      for(const[dr,dc]of[[0,1],[0,-1],[1,0],[-1,0]]){const nr=r+dr,nc=c+dc;if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&grid[nr][nc]===0)open++;}
+      if(open>=2)grid[r][c]=0;
+    }
+  }
+  // Pac-Man wrap tunnels: open left col (c=0) and right col (c=COLS-1) at two rows each.
+  // Pick odd rows near 1/3 and 2/3 height so they connect to carved passages.
+  const tunnelRows=[];
+  const t1=Math.floor(ROWS/3); const t2=Math.floor(2*ROWS/3);
+  // nudge to nearest odd row (carved passages land on odd rows)
+  tunnelRows.push(t1%2===1?t1:t1+1);
+  tunnelRows.push(t2%2===1?t2:t2+1);
+  for(const tr of tunnelRows){
+    grid[tr][0]=0;       // left edge open
+    grid[tr][COLS-1]=0;  // right edge open
+    // ensure the adjacent interior cells are also floor so the player can enter/exit
+    if(grid[tr][1]===1)grid[tr][1]=0;
+    if(grid[tr][COLS-2]===1)grid[tr][COLS-2]=0;
+  }
+  game&&(game.tunnelRows=tunnelRows); // will be set on game obj below too
+  const floors=[];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(grid[r][c]===0)floors.push([r,c]);
+  function bfs(sr,sc){
+    const dist=Array.from({length:ROWS},()=>Array(COLS).fill(-1));
+    dist[sr][sc]=0;const q=[[sr,sc]];let last=[sr,sc];
+    while(q.length){const[r,c]=q.shift();for(const[dr,dc]of[[0,1],[0,-1],[1,0],[-1,0]]){const nr=r+dr,nc=c+dc;if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&grid[nr][nc]===0&&dist[nr][nc]===-1){dist[nr][nc]=dist[r][c]+1;q.push([nr,nc]);last=[nr,nc];}}}
+    return{dist,last};
+  }
+  const{dist:d1,last:far1}=bfs(1,1);
+  // BFS from the farthest point to find the real exit — but exclude tunnel portal cells
+  const portalCells=new Set();
+  for(const tr of tunnelRows){portalCells.add(tr+',0');portalCells.add(tr+','+(COLS-1));portalCells.add(tr+',1');portalCells.add(tr+','+(COLS-2));}
+  // Find the farthest reachable non-portal cell from far1
+  let exitPos=[...floors].filter(([r,c])=>!portalCells.has(r+','+c)&&!(r===1&&c===1))
+    .sort(([r1,c1],[r2,c2])=>(d1[r2][c2]??0)-(d1[r1][c1]??0))[0];
+  if(!exitPos) exitPos=far1; // fallback
+  const eligible=floors.filter(([r,c])=>!(r===1&&c===1)&&!(r===exitPos[0]&&c===exitPos[1])&&!portalCells.has(r+','+c));
+  const ZONE_COLS=5,ZONE_ROWS=2;
+  const zoneW=COLS/ZONE_COLS,zoneH=ROWS/ZONE_ROWS;
+  const insPositions=[];
+  for(let zr=0;zr<ZONE_ROWS;zr++){
+    for(let zc=0;zc<ZONE_COLS;zc++){
+      const cands=eligible.filter(([r,c])=>r>=zr*zoneH&&r<(zr+1)*zoneH&&c>=zc*zoneW&&c<(zc+1)*zoneW);
+      if(!cands.length)continue;
+      cands.sort(([r1,c1],[r2,c2])=>(d1[r2][c2]??0)-(d1[r1][c1]??0));
+      const pool=cands.slice(0,Math.max(1,Math.floor(cands.length/4)));
+      insPositions.push(pool[Math.floor(Math.random()*pool.length)]);
+    }
+  }
+  const insulators=insPositions.map(([r,c],i)=>({r,c,collected:false,type:INS_TYPES[i%INS_TYPES.length]}));
+
+  // ── Bottle placement: must not block any insulator, the exit, or create isolated pockets ──
+  // Key cells that must all remain mutually reachable when the bottle cell is treated as a wall.
+  const keyCells=[[1,1],exitPos,...insPositions];
+
+  function reachableFrom(sr,sc,blockedR,blockedC){
+    // BFS ignoring the bottle cell; returns a Set of "r,c" reachable cells
+    const visited=new Set();
+    const q=[[sr,sc]];
+    visited.add(sr+','+sc);
+    while(q.length){
+      const[r,c]=q.shift();
+      for(const[dr,dc]of[[0,1],[0,-1],[1,0],[-1,0]]){
+        const nr=r+dr,nc=c+dc;
+        if(nr<0||nr>=ROWS||nc<0||nc>=COLS)continue;
+        if(grid[nr][nc]===1)continue;
+        if(nr===blockedR&&nc===blockedC)continue;
+        const k=nr+','+nc;
+        if(!visited.has(k)){visited.add(k);q.push([nr,nc]);}
+      }
+    }
+    return visited;
+  }
+
+  function bottleIsSafe(br,bc){
+    // Flood from start (excluding bottle cell); all other key cells must be reachable
+    const reachable=reachableFrom(1,1,br,bc);
+    for(const[kr,kc]of keyCells){
+      if(kr===br&&kc===bc)continue; // skip the bottle cell itself (shouldn't be a key cell anyway)
+      if(!reachable.has(kr+','+kc))return false;
+    }
+    return true;
+  }
+
+  const used=new Set(insPositions.map(([r,c])=>r+','+c));
+  used.add('1,1');used.add(exitPos[0]+','+exitPos[1]);
+  const bottleCandidates=floors.filter(([r,c])=>!used.has(r+','+c));
+  // Prefer mid-distance cells (not too close to start, not buried in a dead-end corner)
+  bottleCandidates.sort(([r1,c1],[r2,c2])=>(d1[r1][c1]??0)-(d1[r2][c2]??0));
+  const bMid=Math.floor(bottleCandidates.length/2);
+  // Shuffle the middle half so placement feels random but avoids blockers
+  const bPool=bottleCandidates.slice(Math.floor(bottleCandidates.length*0.25),Math.floor(bottleCandidates.length*0.75));
+  for(let i=bPool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[bPool[i],bPool[j]]=[bPool[j],bPool[i]];}
+
+  let bPos=null;
+  for(const pos of bPool){
+    if(bottleIsSafe(pos[0],pos[1])){bPos=pos;break;}
+  }
+  // Fallback: scan all candidates if pool exhausted (very rare)
+  if(!bPos){
+    for(const pos of bottleCandidates){
+      if(bottleIsSafe(pos[0],pos[1])){bPos=pos;break;}
+    }
+  }
+  const bottle=bPos?{r:bPos[0],c:bPos[1],hit:false}:null;
+
+  // Enemy "Dario" — starts at the floor cell farthest from [1,1]
+  const enemyStart=far1; // already computed above
+  const enemy={r:enemyStart[0],c:enemyStart[1]};
+
+  return{grid,player:{r:1,c:1},exit:exitPos,insulators,bottle,enemy,tunnelRows,steps:0,won:false,lost:false,celebrating:false,paused:false,darioMsg:null,taunt:'',startTime:null,elapsed:0};
+}
+
+// ─── Timer ───────────────────────────────────────────────────────────────────
+function formatTime(ms){
+  const s=Math.max(0,Math.floor(ms/1000));
+  return Math.floor(s/60)+':'+(s%60).toString().padStart(2,'0');
+}
+function startTimer(){
+  if(timerInterval)clearInterval(timerInterval);
+  if(difficulty==='notimer'){
+    document.getElementById('timer-wrap').style.display='none';
+    return;
+  }
+  document.getElementById('timer-wrap').style.display='';
+  const limit=diffSeconds()*1000;
+  document.getElementById('timer').textContent=formatTime(limit);
+  game.startTime=Date.now();
+  timerInterval=setInterval(()=>{
+    if(game.won||game.lost){clearInterval(timerInterval);return;}
+    const elapsed=Date.now()-game.startTime;
+    const remaining=Math.max(0,limit-elapsed);
+    game.timeRemaining=remaining;
+    const el=document.getElementById('timer');
+    el.textContent=formatTime(remaining);
+    el.style.color=remaining<10000?'#ff6060':'#f8e84a';
+    if(remaining<=0){
+      clearInterval(timerInterval);
+      game.lost=true;
+      game.taunt='Time has not been good to you...';
+      stopMusic();
+      render();updateHUD();
+    }
+  },250);
+}
+function stopTimer(){
+  if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
+}
+
+// ─── Enemy "Dario" ────────────────────────────────────────────────────────────
+let enemyInterval=null;
+
+function drawEnemy(r,c){
+  const x=c*CELL+CELL/2, y=r*CELL+CELL/2;
+  const sz=Math.min(CELL-4,20);
+  const ps=Math.max(1,Math.floor(sz/9)); // pixel size for 8-bit D
+  // 5×5 pixel "D" glyph
+  const D=[[1,1,1,0],[1,0,0,1],[1,0,0,1],[1,0,0,1],[1,1,1,0]];
+  const gw=4, gh=5;
+  const ox=x-Math.floor(gw*ps/2);
+  const oy=y-Math.floor(gh*ps/2);
+  // Pulsing red glow behind
+  ctx.fillStyle='rgba(255,60,60,0.18)';
+  ctx.beginPath();ctx.arc(x,y,sz*0.72,0,Math.PI*2);ctx.fill();
+  // D body fill (dark red bg)
+  ctx.fillStyle='#1a0000';
+  ctx.fillRect(ox-1,oy-1,gw*ps+2,gh*ps+2);
+  // D pixels
+  for(let row=0;row<D.length;row++){
+    for(let col=0;col<D[row].length;col++){
+      if(D[row][col]){
+        ctx.fillStyle='#ff4444';
+        ctx.fillRect(ox+col*ps,oy+row*ps,ps,ps);
+      }
+    }
+  }
+}
+
+function enemyStep(){
+  if(!game||game.won||game.lost||game.paused)return;
+  const {r,c}=game.enemy;
+  const prev=game.enemy.prev; // track previous cell to avoid immediate reversal
+
+  // Build candidate moves — prefer directions that aren't reversals
+  const allDirs=[[-1,0],[1,0],[0,-1],[0,1]];
+  const moves=[];
+  for(const[dr,dc]of allDirs){
+    let nr=r+dr, nc=c+dc;
+    // Handle left/right wrap
+    if(nc<0){
+      if(game.tunnelRows.includes(r)&&game.grid[r][0]===0){nc=COLS-1;}
+      else continue;
+    } else if(nc>=COLS){
+      if(game.tunnelRows.includes(r)&&game.grid[r][COLS-1]===0){nc=0;}
+      else continue;
+    } else if(nr<0||nr>=ROWS||game.grid[nr][nc]===1) continue;
+    moves.push({nr,nc,dr,dc});
+  }
+  if(!moves.length) return;
+
+  // Separate into "forward" (not reversing) and "back" (last resort)
+  const forward=moves.filter(m=>!(prev&&m.nr===prev.r&&m.nc===prev.c));
+  const pool=forward.length>0?forward:moves;
+
+  // At a junction (3+ valid moves), weight away from backtrack strongly;
+  // in a straight corridor this naturally continues forward.
+  // Add slight bias: if only one forward option, always take it (corridor following).
+  let chosen;
+  if(pool.length===1){
+    chosen=pool[0];
+  } else {
+    chosen=pool[Math.floor(Math.random()*pool.length)];
+  }
+
+  game.enemy.prev={r,c};
+  game.enemy.r=chosen.nr;
+  game.enemy.c=chosen.nc;
+
+  // Check collision with player
+  if(game.enemy.r===game.player.r&&game.enemy.c===game.player.c){
+    handleDarioCollision();
+  } else {
+    render();
+  }
+}
+
+function handleDarioCollision(){
+  const collected=game.insulators.filter(i=>i.collected);
+  if(collected.length===0){
+    // Game over
+    stopTimer(); stopEnemyInterval();
+    game.lost=true;
+    game.taunt='Dario says "What? You\'ve got nothing? Get out of my maze!"';
+    stopMusic();
+    render(); updateHUD();
+  } else {
+    // Steal — pause everything
+    stopTimer(); stopEnemyInterval();
+    const collectedInsulators=game.insulators.filter(i=>i.collected);
+    const stolenIns=collectedInsulators[Math.floor(Math.random()*collectedInsulators.length)];
+    const stolenIdx=game.insulators.indexOf(stolenIns);
+    game.paused=true;
+    game.darioMsg={
+      text:'Dario says "Ha ha ha. I\'ll be taking that!"',
+      phase:'show',
+      dissolveProgress:0,
+      stolenIdx,
+    };
+    render();
+  }
+}
+
+function startDarioDissolve(){
+  if(!game.darioMsg) return;
+  game.darioMsg.phase='dissolve';
+  const STEPS=20;
+  let step=0;
+  const iv=setInterval(()=>{
+    step++;
+    game.darioMsg.dissolveProgress=step/STEPS;
+    render();
+    if(step>=STEPS){
+      clearInterval(iv);
+      // Redistribute the stolen insulator
+      const stolen=game.insulators[game.darioMsg.stolenIdx];
+      if(stolen){
+        stolen.collected=false;
+        // Pick a random floor cell not occupied by player, enemy, exit, bottle, or other insulators
+        const occupied=new Set();
+        occupied.add(game.player.r+','+game.player.c);
+        occupied.add(game.enemy.r+','+game.enemy.c);
+        occupied.add(game.exit[0]+','+game.exit[1]);
+        if(game.bottle&&!game.bottle.hit) occupied.add(game.bottle.r+','+game.bottle.c);
+        game.insulators.forEach((ins,i)=>{if(i!==game.darioMsg.stolenIdx&&!ins.collected)occupied.add(ins.r+','+ins.c);});
+        const candidates=[];
+        for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(game.grid[r][c]===0&&!occupied.has(r+','+c))candidates.push([r,c]);
+        if(candidates.length){
+          const pos=candidates[Math.floor(Math.random()*candidates.length)];
+          stolen.r=pos[0]; stolen.c=pos[1];
+        }
+        updateTray();
+      }
+      game.darioMsg=null;
+      game.paused=false;
+      // Clear prev so Dario picks a fresh direction (won't immediately re-collide
+      // with the same deterministic step, but can still strike again next move)
+      if(game.enemy) game.enemy.prev=null;
+      // Resume timer and enemy
+      if(!game.won&&!game.lost){
+        if(game.startTime) startTimer();
+        startEnemyInterval();
+      }
+      render(); updateHUD();
+    }
+  }, 60);
+}
+
+function stopEnemyInterval(){
+  if(enemyInterval){clearInterval(enemyInterval);enemyInterval=null;}
+}
+
+function startEnemyInterval(){
+  stopEnemyInterval();
+  // Enemy moves once every ~500ms (same "speed" as a deliberate player)
+  enemyInterval=setInterval(enemyStep, 500);
+}
+
+// ─── Dario popup rendering ────────────────────────────────────────────────────
+function renderDarioPopup(){
+  if(!game.darioMsg) return;
+  const msg=game.darioMsg;
+  const W=canvas.width, H=canvas.height;
+  const cx=W/2;
+
+  // Pixel glyph map (reused from win screen)
+  const PG={
+    'A':[[0,1,1,0,0],[1,0,0,1,0],[1,1,1,1,0],[1,0,0,1,0],[1,0,0,1,0]],
+    'B':[[1,1,1,0,0],[1,0,0,1,0],[1,1,1,0,0],[1,0,0,1,0],[1,1,1,0,0]],
+    'C':[[0,1,1,1,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[0,1,1,1,0]],
+    'D':[[1,1,1,0,0],[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[1,1,1,0,0]],
+    'E':[[1,1,1,1,0],[1,0,0,0,0],[1,1,1,0,0],[1,0,0,0,0],[1,1,1,1,0]],
+    'F':[[1,1,1,1,0],[1,0,0,0,0],[1,1,1,0,0],[1,0,0,0,0],[1,0,0,0,0]],
+    'G':[[0,1,1,1,0],[1,0,0,0,0],[1,0,1,1,0],[1,0,0,1,0],[0,1,1,1,0]],
+    'H':[[1,0,0,1,0],[1,0,0,1,0],[1,1,1,1,0],[1,0,0,1,0],[1,0,0,1,0]],
+    'I':[[1,1,1,0,0],[0,1,0,0,0],[0,1,0,0,0],[0,1,0,0,0],[1,1,1,0,0]],
+    'J':[[0,0,1,1,0],[0,0,0,1,0],[0,0,0,1,0],[1,0,0,1,0],[0,1,1,0,0]],
+    'K':[[1,0,0,1,0],[1,0,1,0,0],[1,1,0,0,0],[1,0,1,0,0],[1,0,0,1,0]],
+    'L':[[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,0]],
+    'M':[[1,0,0,0,1],[1,1,0,1,1],[1,0,1,0,1],[1,0,0,0,1],[1,0,0,0,1]],
+    'N':[[1,0,0,1,0],[1,1,0,1,0],[1,0,1,1,0],[1,0,0,1,0],[1,0,0,1,0]],
+    'O':[[0,1,1,0,0],[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[0,1,1,0,0]],
+    'P':[[1,1,1,0,0],[1,0,0,1,0],[1,1,1,0,0],[1,0,0,0,0],[1,0,0,0,0]],
+    'R':[[1,1,1,0,0],[1,0,0,1,0],[1,1,1,0,0],[1,0,1,0,0],[1,0,0,1,0]],
+    'S':[[0,1,1,1,0],[1,0,0,0,0],[0,1,1,0,0],[0,0,0,1,0],[1,1,1,0,0]],
+    'T':[[1,1,1,1,1],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]],
+    'U':[[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[0,1,1,0,0]],
+    'W':[[1,0,0,0,1],[1,0,0,0,1],[1,0,1,0,1],[1,1,0,1,1],[1,0,0,0,1]],
+    'X':[[1,0,0,0,1],[0,1,0,1,0],[0,0,1,0,0],[0,1,0,1,0],[1,0,0,0,1]],
+    'Y':[[1,0,0,0,1],[0,1,0,1,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]],
+    '!':[[0,1,0],[0,1,0],[0,1,0],[0,0,0],[0,1,0]],
+    "'":[[0,1,0],[0,1,0],[0,0,0],[0,0,0],[0,0,0]],
+    '"':[[1,0,1],[1,0,1],[0,0,0],[0,0,0],[0,0,0]],
+    '?':[[0,1,1,0],[0,0,0,1],[0,0,1,0],[0,0,0,0],[0,0,1,0]],
+    '.':[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,1,0]],
+    ',':[[0,0,0],[0,0,0],[0,0,0],[0,1,0],[0,1,0]],
+    ' ':[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],
+    '-':[[0,0,0],[0,0,0],[1,1,1],[0,0,0],[0,0,0]],
+    '[':[[1,1,0],[1,0,0],[1,0,0],[1,0,0],[1,1,0]],
+    ']':[[0,1,1],[0,0,1],[0,0,1],[0,0,1],[0,1,1]],
+  };
+  function pgw(ch){const g=PG[ch]||PG[' '];return(g[0]||[' ']).length+1;}
+  function ptw(str,ps){return str.split('').reduce((a,ch)=>a+pgw(ch)*ps,0)-ps;}
+  function pdraw(str,x,y,ps,col,shd){
+    let cx2=x;
+    for(const ch of str){
+      const g=PG[ch]||PG[' '];
+      for(let row=0;row<g.length;row++)for(let col2=0;col2<g[row].length;col2++)if(g[row][col2]){
+        if(shd){ctx.fillStyle=shd;ctx.fillRect(cx2+col2*ps+ps,y+row*ps+ps,ps,ps);}
+        ctx.fillStyle=col;ctx.fillRect(cx2+col2*ps,y+row*ps,ps,ps);
+      }
+      cx2+=pgw(ch)*ps;
+    }
+  }
+  function pcenter(str,y,ps,col,shd){pdraw(str,Math.round(cx-ptw(str,ps)/2),y,ps,col,shd);}
+
+  // Auto-fit pixel sizes so everything stays within card bounds
+  const maxCardW=Math.min(W*0.85,620);
+  const innerW=maxCardW-40; // usable width inside border padding
+
+  // Title pixel size — scale down until it fits
+  let ps1=Math.max(3,Math.floor(Math.min(5,W/200)));
+  const titleLine='DARIO STRIKES!';
+  while(ps1>2&&ptw(titleLine,ps1)>innerW)ps1--;
+
+  // Body pixel size
+  let ps=Math.max(2,Math.floor(ps1*0.7));
+
+  // Word-wrap using actual pixel widths
+  const words=msg.text.toUpperCase().split(' ');
+  const lines2=[];let cur='';
+  for(const w of words){
+    const test=cur?cur+' '+w:w;
+    if(ptw(test,ps)>innerW&&cur){lines2.push(cur);cur=w;}else cur=test;
+  }
+  if(cur)lines2.push(cur);
+
+  const hintLine='[CLICK OR KEY TO CONTINUE]';
+  const titleH=ps1*7;
+  const lineH=ps*7;
+  const hintH=ps*7;
+  const cardPadV=20;
+  const cardH=cardPadV+titleH+ps1*2+lines2.length*lineH+ps*3+hintH+cardPadV;
+  const cardW=maxCardW;
+  const bx=cx-cardW/2, by=H/2-cardH/2;
+
+  function drawCard(){
+    // Shadow
+    ctx.fillStyle='rgba(0,0,0,0.3)';
+    ctx.fillRect(bx+5,by+7,cardW,cardH);
+    // Body
+    ctx.fillStyle='#120000';
+    ctx.fillRect(bx,by,cardW,cardH);
+    // Red border (4-pixel 8-bit style — draw as 4 filled rects)
+    const b=3;
+    ctx.fillStyle='#ff2222';
+    ctx.fillRect(bx,by,cardW,b);          // top
+    ctx.fillRect(bx,by+cardH-b,cardW,b);  // bottom
+    ctx.fillRect(bx,by,b,cardH);          // left
+    ctx.fillRect(bx+cardW-b,by,b,cardH);  // right
+    // Title
+    pcenter(titleLine, by+cardPadV, ps1,'#ff4444','#660000');
+    // Message lines
+    let ty=by+cardPadV+titleH+ps1*2;
+    for(const l of lines2){
+      pcenter(l.toUpperCase(), ty, ps,'#ffcccc','#440000');
+      ty+=lineH;
+    }
+    // Hint (blinking — show when Math.floor(Date.now()/500)%2===0)
+    if(Math.floor(Date.now()/500)%2===0){
+      pcenter(hintLine, by+cardH-cardPadV-hintH, ps,'#884444',null);
+    }
+  }
+
+  if(msg.phase==='show'){
+    ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(0,0,W,H);
+    drawCard();
+  } else if(msg.phase==='dissolve'){
+    ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(0,0,W,H);
+    drawCard();
+    // 8-bit block dissolve — erase tiles in deterministic scatter order
+    const BSIZ=Math.max(4,Math.floor(CELL/3));
+    const cols2=Math.ceil(cardW/BSIZ), rows2=Math.ceil(cardH/BSIZ);
+    const total=cols2*rows2;
+    const eraseCount=Math.floor(msg.dissolveProgress*total);
+    for(let i=0;i<eraseCount;i++){
+      const idx=Math.floor((i*2654435761)%total);
+      const bc=idx%cols2, br=Math.floor(idx/cols2);
+      ctx.clearRect(bx+bc*BSIZ,by+br*BSIZ,BSIZ,BSIZ);
+    }
+  }
+}
+
+// ─── Render ──────────────────────────────────────────────────────────────────
+// ─── Glass bottle decoy ──────────────────────────────────────────────────────
+function drawBottle(r,c){
+  const x=c*CELL+CELL/2, y=r*CELL+CELL/2;
+  const sz=CELL*0.82;
+  const s=sz/20;
+  ctx.save();ctx.translate(x,y);ctx.scale(s,s);
+  // body — green glass bottle shape
+  ctx.fillStyle='#3a7a3a';ctx.strokeStyle='#1e4d1e';ctx.lineWidth=1/s;
+  // main body (rounded rectangle lower half)
+  ctx.beginPath();
+  ctx.moveTo(-5,0);ctx.lineTo(-5,8);
+  ctx.quadraticCurveTo(-5,13,0,13);ctx.quadraticCurveTo(5,13,5,8);
+  ctx.lineTo(5,0);ctx.closePath();ctx.fill();ctx.stroke();
+  // shoulder taper
+  ctx.beginPath();ctx.moveTo(-5,0);ctx.quadraticCurveTo(-5,-3,-2.5,-5);ctx.lineTo(2.5,-5);ctx.quadraticCurveTo(5,-3,5,0);ctx.closePath();
+  ctx.fill();ctx.stroke();
+  // neck
+  ctx.fillStyle='#2e6b2e';ctx.strokeStyle='#1e4d1e';
+  ctx.beginPath();ctx.roundRect(-2.2,-10,4.4,5.5,0.5);ctx.fill();ctx.stroke();
+  // lip/mouth
+  ctx.fillStyle='#2e6b2e';
+  ctx.beginPath();ctx.roundRect(-2.8,-11.5,5.6,2,0.8);ctx.fill();ctx.stroke();
+  // glass highlight on body
+  ctx.fillStyle='rgba(255,255,255,0.22)';
+  ctx.beginPath();ctx.moveTo(-3.5,-1);ctx.lineTo(-2.5,-1);ctx.lineTo(-2.5,8);ctx.quadraticCurveTo(-3,10,-4,8);ctx.quadraticCurveTo(-4,3,-3.5,-1);ctx.closePath();ctx.fill();
+  // bubble highlights
+  ctx.fillStyle='rgba(255,255,255,0.35)';
+  ctx.beginPath();ctx.ellipse(-1.5,4,0.7,1.1,0.2,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(1.2,7,0.5,0.8,-0.3,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+// ─── Celebration system ──────────────────────────────────────────────────────
+let celebRaf=null;
+
+function stopCelebration(){
+  if(celebRaf){cancelAnimationFrame(celebRaf);celebRaf=null;}
+}
+
+function startCelebration(){
+  stopCelebration();
+
+  // ── 80s pop tune ────────────────────────────────────────────────────────────
+  function play80sPop(){
+    try{
+      const a=ac();
+      // Synth lead (square wave) — cheerful major-key riff in C
+      const lead=[
+        [523,0],[659,0.18],[784,0.36],[1047,0.54],[784,0.72],[659,0.9],
+        [523,1.08],[659,1.26],[784,1.44],[880,1.62],[1047,1.8],[880,1.98],
+        [784,2.16],[659,2.34],[523,2.52],[587,2.7],
+        [659,2.88],[784,3.06],[1047,3.24],[784,3.42],
+        [659,3.6],[523,3.78],[659,3.96],[784,4.14],
+      ];
+      lead.forEach(([freq,when])=>{
+        const o=a.createOscillator(),g=a.createGain();
+        o.type='square';o.frequency.value=freq;
+        const t=a.currentTime+0.1+when;
+        g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.09,t+0.02);
+        g.gain.exponentialRampToValueAtTime(0.001,t+0.17);
+        o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+0.2);
+      });
+      // Bass (triangle, root notes every beat)
+      const bass=[262,262,196,262,196,330,262,196];
+      bass.forEach((freq,i)=>{
+        const o=a.createOscillator(),g=a.createGain();
+        o.type='triangle';o.frequency.value=freq;
+        const t=a.currentTime+0.1+i*0.54;
+        g.gain.setValueAtTime(0.22,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.38);
+        o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+0.4);
+      });
+      // Drums: kick on 1&3, snare on 2&4, 8th hi-hats
+      for(let i=0;i<16;i++){
+        const t=a.currentTime+0.1+i*0.27;
+        // hi-hat every 8th
+        {const buf=a.createBuffer(1,a.sampleRate*0.05,a.sampleRate);
+        const d=buf.getChannelData(0);for(let j=0;j<d.length;j++)d[j]=Math.random()*2-1;
+        const s=a.createBufferSource(),g=a.createGain(),f=a.createBiquadFilter();
+        f.type='highpass';f.frequency.value=8000;
+        s.buffer=buf;g.gain.setValueAtTime(0.05,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.05);
+        s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);}
+        // kick on beat 1 and 3 (every 4th 8th = index 0,4,8,12)
+        if(i%4===0){
+          const o=a.createOscillator(),g=a.createGain();
+          o.type='sine';o.frequency.setValueAtTime(180,t);o.frequency.exponentialRampToValueAtTime(40,t+0.12);
+          g.gain.setValueAtTime(0.5,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.15);
+          o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+0.18);
+        }
+        // snare on beat 2 and 4
+        if(i%4===2){
+          const buf=a.createBuffer(1,a.sampleRate*0.1,a.sampleRate);
+          const d=buf.getChannelData(0);for(let j=0;j<d.length;j++)d[j]=Math.random()*2-1;
+          const s=a.createBufferSource(),g=a.createGain(),f=a.createBiquadFilter();
+          f.type='bandpass';f.frequency.value=2000;f.Q.value=0.7;
+          s.buffer=buf;g.gain.setValueAtTime(0.18,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.1);
+          s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);
+        }
+      }
+      // Synth chord stabs (saw, every 2 beats)
+      [[523,659,784],[392,523,659],[440,554,659],[349,440,523]].forEach(([f1,f2,f3],i)=>{
+        [f1,f2,f3].forEach(freq=>{
+          const o=a.createOscillator(),g=a.createGain(),f=a.createBiquadFilter();
+          o.type='sawtooth';o.frequency.value=freq;f.type='lowpass';f.frequency.value=1400;
+          const t=a.currentTime+0.1+i*1.08;
+          g.gain.setValueAtTime(0.06,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.22);
+          o.connect(f);f.connect(g);g.connect(a.destination);o.start(t);o.stop(t+0.25);
+        });
+      });
+    }catch(e){}
+  }
+
+  // ── Pixel dissolve ───────────────────────────────────────────────────────────
+  // Snapshot the maze canvas, then scatter pixels in random batches to white
+  const W=canvas.width, H=canvas.height;
+  const snapshot=ctx.getImageData(0,0,W,H);
+  const total=W*H;
+  // Build shuffled pixel index list
+  const indices=new Int32Array(total);
+  for(let i=0;i<total;i++)indices[i]=i;
+  // Fisher-Yates shuffle (fast on typed array)
+  for(let i=total-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=indices[i];indices[i]=indices[j];indices[j]=t;}
+
+  const DISSOLVE_MS=520; // total dissolve time
+  const startT=performance.now();
+  let dissolved=0;
+
+  function dissolveFrame(now){
+    const elapsed=now-startT;
+    const progress=Math.min(1,elapsed/DISSOLVE_MS);
+    const target=Math.floor(progress*total);
+    // Fill pixels white from snapshot image data
+    const data=snapshot.data;
+    for(let i=dissolved;i<target;i++){
+      const px=indices[i]*4;
+      data[px]=255;data[px+1]=255;data[px+2]=255;data[px+3]=255;
+    }
+    dissolved=target;
+    ctx.putImageData(snapshot,0,0);
+    if(progress<1){
+      celebRaf=requestAnimationFrame(dissolveFrame);
+    } else {
+      // Dissolve done — start dancing insulators
+      play80sPop();
+      celebRaf=requestAnimationFrame(t=>dancingFrame(t,performance.now()));
+    }
+  }
+  celebRaf=requestAnimationFrame(dissolveFrame);
+
+  // ── Dancing insulators ────────────────────────────────────────────────────────
+  const DANCE_INS_TYPES=['cd112','pony','threadless','mickey','hemingray'];
+  const NUM_DANCERS=12;
+  const dancers=Array.from({length:NUM_DANCERS},(_,i)=>{
+    return{
+      x:W*(0.08+0.84*((i+0.5)/NUM_DANCERS)),
+      y:H*0.52,
+      type:DANCE_INS_TYPES[i%DANCE_INS_TYPES.length],
+      phase:Math.random()*Math.PI*2,
+      speed:0.9+Math.random()*0.6,
+      amp:H*0.07+Math.random()*H*0.06,
+      scale:0.9+Math.random()*0.5,
+      spin:0,
+      spinDir:(Math.random()>0.5?1:-1)*(0.04+Math.random()*0.06),
+    };
+  });
+
+  // Confetti particles
+  const confetti=Array.from({length:90},()=>({
+    x:Math.random()*W, y:Math.random()*-H*0.5,
+    vx:(Math.random()-0.5)*3, vy:1.5+Math.random()*3,
+    color:['#5DCAA5','#378ADD','#EF9F27','#D4537E','#AFA9EC','#e8d090','#f5c0c0'][Math.floor(Math.random()*7)],
+    r:Math.floor(3+Math.random()*5), angle:Math.random()*Math.PI*2, av:(Math.random()-0.5)*0.2,
+  }));
+
+  function dancingFrame(now, t0){
+    const t=(now-t0)/1000;
+    ctx.fillStyle='#0a0a0a';
+    ctx.fillRect(0,0,W,H);
+
+    // Confetti
+    for(const p of confetti){
+      p.x+=p.vx;p.y+=p.vy;p.angle+=p.av;
+      if(p.y>H+20){p.y=-20;p.x=Math.random()*W;}
+      ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);
+      ctx.fillStyle=p.color;ctx.fillRect(-p.r,-p.r/2,p.r*2,p.r);ctx.restore();
+    }
+
+    // ── Pixel-block text renderer ──────────────────────────────────────────
+    // Each character is a 5×7 bitmap. We draw filled rectangles for each lit pixel.
+    const GLYPHS={
+      'A':[[0,1,1,0,0],[1,0,0,1,0],[1,1,1,1,0],[1,0,0,1,0],[1,0,0,1,0]],
+      'B':[[1,1,1,0,0],[1,0,0,1,0],[1,1,1,0,0],[1,0,0,1,0],[1,1,1,0,0]],
+      'C':[[0,1,1,1,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[0,1,1,1,0]],
+      'D':[[1,1,1,0,0],[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[1,1,1,0,0]],
+      'E':[[1,1,1,1,0],[1,0,0,0,0],[1,1,1,0,0],[1,0,0,0,0],[1,1,1,1,0]],
+      'F':[[1,1,1,1,0],[1,0,0,0,0],[1,1,1,0,0],[1,0,0,0,0],[1,0,0,0,0]],
+      'G':[[0,1,1,1,0],[1,0,0,0,0],[1,0,1,1,0],[1,0,0,1,0],[0,1,1,1,0]],
+      'H':[[1,0,0,1,0],[1,0,0,1,0],[1,1,1,1,0],[1,0,0,1,0],[1,0,0,1,0]],
+      'I':[[1,1,1,0,0],[0,1,0,0,0],[0,1,0,0,0],[0,1,0,0,0],[1,1,1,0,0]],
+      'J':[[0,0,1,1,0],[0,0,0,1,0],[0,0,0,1,0],[1,0,0,1,0],[0,1,1,0,0]],
+      'K':[[1,0,0,1,0],[1,0,1,0,0],[1,1,0,0,0],[1,0,1,0,0],[1,0,0,1,0]],
+      'L':[[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,0]],
+      'M':[[1,0,0,0,1],[1,1,0,1,1],[1,0,1,0,1],[1,0,0,0,1],[1,0,0,0,1]],
+      'N':[[1,0,0,1,0],[1,1,0,1,0],[1,0,1,1,0],[1,0,0,1,0],[1,0,0,1,0]],
+      'O':[[0,1,1,0,0],[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[0,1,1,0,0]],
+      'P':[[1,1,1,0,0],[1,0,0,1,0],[1,1,1,0,0],[1,0,0,0,0],[1,0,0,0,0]],
+      'Q':[[0,1,1,0,0],[1,0,0,1,0],[1,0,0,1,0],[1,0,1,1,0],[0,1,1,1,0]],
+      'R':[[1,1,1,0,0],[1,0,0,1,0],[1,1,1,0,0],[1,0,1,0,0],[1,0,0,1,0]],
+      'S':[[0,1,1,1,0],[1,0,0,0,0],[0,1,1,0,0],[0,0,0,1,0],[1,1,1,0,0]],
+      'T':[[1,1,1,1,1],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]],
+      'U':[[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[0,1,1,0,0]],
+      'V':[[1,0,0,0,1],[1,0,0,0,1],[0,1,0,1,0],[0,1,0,1,0],[0,0,1,0,0]],
+      'W':[[1,0,0,0,1],[1,0,0,0,1],[1,0,1,0,1],[1,1,0,1,1],[1,0,0,0,1]],
+      'X':[[1,0,0,0,1],[0,1,0,1,0],[0,0,1,0,0],[0,1,0,1,0],[1,0,0,0,1]],
+      'Y':[[1,0,0,0,1],[0,1,0,1,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]],
+      'Z':[[1,1,1,1,0],[0,0,0,1,0],[0,0,1,0,0],[0,1,0,0,0],[1,1,1,1,0]],
+      '0':[[0,1,1,0,0],[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[0,1,1,0,0]],
+      '1':[[0,1,0,0,0],[1,1,0,0,0],[0,1,0,0,0],[0,1,0,0,0],[1,1,1,0,0]],
+      '2':[[0,1,1,0,0],[1,0,0,1,0],[0,0,1,0,0],[0,1,0,0,0],[1,1,1,1,0]],
+      '3':[[1,1,1,0,0],[0,0,0,1,0],[0,1,1,0,0],[0,0,0,1,0],[1,1,1,0,0]],
+      '4':[[1,0,1,0,0],[1,0,1,0,0],[1,1,1,1,0],[0,0,1,0,0],[0,0,1,0,0]],
+      '5':[[1,1,1,1,0],[1,0,0,0,0],[1,1,1,0,0],[0,0,0,1,0],[1,1,1,0,0]],
+      '6':[[0,1,1,0,0],[1,0,0,0,0],[1,1,1,0,0],[1,0,0,1,0],[0,1,1,0,0]],
+      '7':[[1,1,1,1,0],[0,0,0,1,0],[0,0,1,0,0],[0,1,0,0,0],[0,1,0,0,0]],
+      '8':[[0,1,1,0,0],[1,0,0,1,0],[0,1,1,0,0],[1,0,0,1,0],[0,1,1,0,0]],
+      '9':[[0,1,1,0,0],[1,0,0,1,0],[0,1,1,1,0],[0,0,0,1,0],[0,1,1,0,0]],
+      '!':[[0,1,0,0,0],[0,1,0,0,0],[0,1,0,0,0],[0,0,0,0,0],[0,1,0,0,0]],
+      ' ':[[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]],
+      '-':[[0,0,0,0,0],[0,0,0,0,0],[1,1,1,0,0],[0,0,0,0,0],[0,0,0,0,0]],
+      ':':[[0,0,0,0,0],[0,1,0,0,0],[0,0,0,0,0],[0,1,0,0,0],[0,0,0,0,0]],
+      '.':[[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,1,0,0,0]],
+    };
+
+    function pixelText(text, x, y, ps, color, shadowColor){
+      const chars=text.toUpperCase().split('');
+      let cx=x;
+      for(const ch of chars){
+        const g=GLYPHS[ch]||GLYPHS[' '];
+        for(let row=0;row<g.length;row++){
+          for(let col=0;col<g[row].length;col++){
+            if(g[row][col]){
+              if(shadowColor){ctx.fillStyle=shadowColor;ctx.fillRect(cx+col*ps+ps,y+row*ps+ps,ps,ps);}
+              ctx.fillStyle=color;ctx.fillRect(cx+col*ps,y+row*ps,ps,ps);
+            }
+          }
+        }
+        cx+=(g[0].length+1)*ps;
+      }
+      return cx-x;
+    }
+
+    function pixelTextCentered(text, cy, ps, color, shadowColor){
+      const chars=text.toUpperCase().split('');
+      const totalW=chars.reduce((acc,ch)=>{const g=GLYPHS[ch]||GLYPHS[' '];return acc+(g[0].length+1)*ps;},0)-ps;
+      pixelText(text, W/2-totalW/2, cy, ps, color, shadowColor);
+    }
+
+    // Title text — vertically centered in canvas
+    const titlePs=Math.max(3,Math.floor(Math.min(7,W/110)));
+    const subPs=Math.max(2,Math.floor(Math.min(4,W/180)));
+    const statPs=Math.max(2,Math.floor(Math.min(3,W/220)));
+    const lineH_title=titlePs*8;
+    const lineH_sub=subPs*8;
+    const lineH_stat=statPs*8;
+    const blockH=lineH_title*2+titlePs*4+lineH_sub*2+subPs*4+lineH_stat;
+    const yStart=Math.round(H/2-blockH/2);
+
+    const pulse=1+Math.sin(t*2.5)*0.025;
+    ctx.save();ctx.translate(W/2,yStart+lineH_title);ctx.scale(pulse,pulse);ctx.translate(-W/2,-(yStart+lineH_title));
+    pixelTextCentered('COLLECTION', yStart,             titlePs,'#f8e84a','#b86a00');
+    pixelTextCentered('COMPLETE!',  yStart+lineH_title, titlePs,'#ff6060','#8a0000');
+    ctx.restore();
+
+    const subY=yStart+lineH_title*2+titlePs*4;
+    pixelTextCentered('ALL 10 INSULATORS SECURED', subY,            subPs,'#a0e0ff','#004488');
+    pixelTextCentered('OFF TO THE NATIONAL!',       subY+lineH_sub, subPs,'#a0e0ff','#004488');
+
+    const statY=subY+lineH_sub*2+subPs*4;
+    pixelTextCentered(game.steps+' STEPS  '+formatTime(game.elapsed), statY, statPs,'#5DCAA5','#083a28');
+
+    // Blinking play-again near bottom
+    if(Math.floor(t*2)%2===0){
+      pixelTextCentered('PRESS NEW MAZE TO PLAY AGAIN', H-statPs*10, statPs,'#666666',null);
+    }
+
+    celebRaf=requestAnimationFrame(t2=>dancingFrame(t2,t0));
+  }
+}
+
+// ─── Taunts ──────────────────────────────────────────────────────────────────
+const TAUNTS={
+  0:["You went straight for the exit? Didn't even sniff an insulator. Threadless effort.",
+     "Zero insulators. Even a porcelain knob-and-tube collector would be embarrassed.",
+     "No insulators at all? The Hemingray-42 on aisle 3 just rolled its dome at you."],
+  1:["One insulator? That's not a collection, that's a mistake on a shelf.",
+     "You grabbed one CD-112 and bolted. Mickey style: two ears, zero insulators.",
+     "One pony insulator. You're not a collector — you're a grazer."],
+  2:["Two insulators. Nice start for a snow globe collection, not a show.",
+     "Sorry Mickey, you only collected 2 insulators. The National thanks you for the early exit.",
+     "Two Hemingray-42s and a run for the door. CD-two? More like CD-done."],
+  3:["Hey Pilgrim — 3 insulators isn't exactly a threadless victory.",
+     "Three down, seven to go. You crossed the flag like it was a finish line at a fun run.",
+     "3 insulators collected. The Brookfield crowd is not impressed."],
+  4:["Four insulators. You're halfway to mediocre.",
+     "A CD-145 is worth more than 4 insulators and a fast exit. Just saying.",
+     "Four pony-style insulators and a dash for glory. Barely insulating."],
+  5:["Five insulators — the glass is half empty, pal.",
+     "Halfway there and you bailed. Even a Mickey Double Petticoat has more layers than that.",
+     "5 out of 10. Not so hot, Pilgrim. The signal wire is still sparking."],
+  6:["Six insulators and you ran. So close, yet so Hemingray-far.",
+     "Six down, four abandoned. Your collection has more gaps than a threadless insulator.",
+     "CD-106 gets 6 points. CD-National gets 10. You got the wrong CD."],
+  7:["Seven insulators! Three shy of glory. The Brookfield '45 is disappointed in you.",
+     "7 out of 10 — you had the dome, but not the petticoat to finish it.",
+     "So close. The remaining three insulators are still out there, feeling threadless."],
+  8:["Eight insulators and you jumped the flag! Two more and you'd have the full string.",
+     "8 out of 10. A near-perfect run with a Mickey-sized hole in the collection.",
+     "So close the Hemingray-42 almost put out the welcome mat. Two left on the line!"],
+  9:["Nine insulators! One shy of legend. One sad little CD-145 sits uncollected.",
+     "9 out of 10 — the rarest insulator is the one you didn't pick up.",
+     "You had 9 and crossed anyway. That last one is still hanging on the crossarm, laughing."],
+};
+
+function getTaunt(n){
+  const bucket=Math.min(9,Math.max(0,n));
+  const list=TAUNTS[bucket];
+  return list[Math.floor(Math.random()*list.length)];
+}
+
+function render(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    ctx.fillStyle=game.grid[r][c]===1?'#06061a':((r+c)%2===0?'#2a2a5a':'#252550');
+    ctx.fillRect(c*CELL,r*CELL,CELL,CELL);
+  }
+  const[er,ec]=game.exit;drawExit(er,ec);
+  // Draw Pac-Man-style tunnel portals on left and right edges
+  if(game.tunnelRows){
+    for(const tr of game.tunnelRows){
+      const ty=tr*CELL, th=CELL;
+      // left portal
+      ctx.fillStyle='#4a3a6a';
+      ctx.fillRect(0,ty,CELL*0.35,th);
+      ctx.fillStyle='#8b6be8';
+      ctx.fillRect(0,ty+th*0.25,CELL*0.35,th*0.5);
+      // right portal
+      ctx.fillStyle='#4a3a6a';
+      ctx.fillRect(canvas.width-CELL*0.35,ty,CELL*0.35,th);
+      ctx.fillStyle='#8b6be8';
+      ctx.fillRect(canvas.width-CELL*0.35,ty+th*0.25,CELL*0.35,th*0.5);
+    }
+  }
+  const margin=2,iw=CELL-margin*2;
+  for(const ins of game.insulators){
+    const img=buildInsulatorCanvas(ins.type,ins.collected);
+    ctx.drawImage(img,ins.c*CELL+margin,ins.r*CELL+margin,iw,iw);
+  }
+  if(game.bottle&&!game.bottle.hit){
+    drawBottle(game.bottle.r,game.bottle.c);
+  }
+  if(game.enemy) drawEnemy(game.enemy.r,game.enemy.c);
+  drawPlayer(game.player.r,game.player.c);
+  if(game.won&&!game.celebrating){
+    // Trigger the celebration sequence on the next frame
+    game.celebrating=true;
+    startCelebration();
+  }
+  if(game.lost){
+    const n=game.bottle&&game.bottle.hit?0:game.insulators.filter(i=>i.collected).length;
+    const isTimeUp=game.taunt==='Time has not been good to you...';
+    const isBottle=game.bottle&&game.bottle.hit;
+    const titleStr=isBottle?'BOTTLED OUT!':isTimeUp?'TIME IS UP!':'DISQUALIFIED!';
+
+    // Shared pixel helpers (same glyph set as Dario popup)
+    const PG2={
+      'A':[[0,1,1,0,0],[1,0,0,1,0],[1,1,1,1,0],[1,0,0,1,0],[1,0,0,1,0]],
+      'B':[[1,1,1,0,0],[1,0,0,1,0],[1,1,1,0,0],[1,0,0,1,0],[1,1,1,0,0]],
+      'C':[[0,1,1,1,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[0,1,1,1,0]],
+      'D':[[1,1,1,0,0],[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[1,1,1,0,0]],
+      'E':[[1,1,1,1,0],[1,0,0,0,0],[1,1,1,0,0],[1,0,0,0,0],[1,1,1,1,0]],
+      'F':[[1,1,1,1,0],[1,0,0,0,0],[1,1,1,0,0],[1,0,0,0,0],[1,0,0,0,0]],
+      'G':[[0,1,1,1,0],[1,0,0,0,0],[1,0,1,1,0],[1,0,0,1,0],[0,1,1,1,0]],
+      'H':[[1,0,0,1,0],[1,0,0,1,0],[1,1,1,1,0],[1,0,0,1,0],[1,0,0,1,0]],
+      'I':[[1,1,1,0,0],[0,1,0,0,0],[0,1,0,0,0],[0,1,0,0,0],[1,1,1,0,0]],
+      'J':[[0,0,1,1,0],[0,0,0,1,0],[0,0,0,1,0],[1,0,0,1,0],[0,1,1,0,0]],
+      'K':[[1,0,0,1,0],[1,0,1,0,0],[1,1,0,0,0],[1,0,1,0,0],[1,0,0,1,0]],
+      'L':[[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,0]],
+      'M':[[1,0,0,0,1],[1,1,0,1,1],[1,0,1,0,1],[1,0,0,0,1],[1,0,0,0,1]],
+      'N':[[1,0,0,1,0],[1,1,0,1,0],[1,0,1,1,0],[1,0,0,1,0],[1,0,0,1,0]],
+      'O':[[0,1,1,0,0],[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[0,1,1,0,0]],
+      'P':[[1,1,1,0,0],[1,0,0,1,0],[1,1,1,0,0],[1,0,0,0,0],[1,0,0,0,0]],
+      'Q':[[0,1,1,0,0],[1,0,0,1,0],[1,0,0,1,0],[1,0,1,1,0],[0,1,1,1,0]],
+      'R':[[1,1,1,0,0],[1,0,0,1,0],[1,1,1,0,0],[1,0,1,0,0],[1,0,0,1,0]],
+      'S':[[0,1,1,1,0],[1,0,0,0,0],[0,1,1,0,0],[0,0,0,1,0],[1,1,1,0,0]],
+      'T':[[1,1,1,1,1],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]],
+      'U':[[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[0,1,1,0,0]],
+      'V':[[1,0,0,0,1],[1,0,0,0,1],[0,1,0,1,0],[0,1,0,1,0],[0,0,1,0,0]],
+      'W':[[1,0,0,0,1],[1,0,0,0,1],[1,0,1,0,1],[1,1,0,1,1],[1,0,0,0,1]],
+      'X':[[1,0,0,0,1],[0,1,0,1,0],[0,0,1,0,0],[0,1,0,1,0],[1,0,0,0,1]],
+      'Y':[[1,0,0,0,1],[0,1,0,1,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]],
+      'Z':[[1,1,1,1,0],[0,0,0,1,0],[0,0,1,0,0],[0,1,0,0,0],[1,1,1,1,0]],
+      '0':[[0,1,1,0,0],[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[0,1,1,0,0]],
+      '1':[[0,1,0,0,0],[1,1,0,0,0],[0,1,0,0,0],[0,1,0,0,0],[1,1,1,0,0]],
+      '2':[[0,1,1,0,0],[1,0,0,1,0],[0,0,1,0,0],[0,1,0,0,0],[1,1,1,1,0]],
+      '3':[[1,1,1,0,0],[0,0,0,1,0],[0,1,1,0,0],[0,0,0,1,0],[1,1,1,0,0]],
+      '4':[[1,0,1,0,0],[1,0,1,0,0],[1,1,1,1,0],[0,0,1,0,0],[0,0,1,0,0]],
+      '5':[[1,1,1,1,0],[1,0,0,0,0],[1,1,1,0,0],[0,0,0,1,0],[1,1,1,0,0]],
+      '6':[[0,1,1,0,0],[1,0,0,0,0],[1,1,1,0,0],[1,0,0,1,0],[0,1,1,0,0]],
+      '7':[[1,1,1,1,0],[0,0,0,1,0],[0,0,1,0,0],[0,1,0,0,0],[0,1,0,0,0]],
+      '8':[[0,1,1,0,0],[1,0,0,1,0],[0,1,1,0,0],[1,0,0,1,0],[0,1,1,0,0]],
+      '9':[[0,1,1,0,0],[1,0,0,1,0],[0,1,1,1,0],[0,0,0,1,0],[0,1,1,0,0]],
+      '!':[[0,1,0],[0,1,0],[0,1,0],[0,0,0],[0,1,0]],
+      "'":[[0,1,0],[0,1,0],[0,0,0],[0,0,0],[0,0,0]],
+      '"':[[1,0,1],[1,0,1],[0,0,0],[0,0,0],[0,0,0]],
+      '?':[[0,1,1,0],[0,0,0,1],[0,0,1,0],[0,0,0,0],[0,0,1,0]],
+      '.':[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,1,0]],
+      ',':[[0,0,0],[0,0,0],[0,0,0],[0,1,0],[0,1,0]],
+      ' ':[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],
+      '-':[[0,0,0],[0,0,0],[1,1,1],[0,0,0],[0,0,0]],
+      '/':[[0,0,0,1],[0,0,1,0],[0,1,0,0],[1,0,0,0],[0,0,0,0]],
+    };
+    function lpgw(ch){const g=PG2[ch.toUpperCase()]||PG2[' '];return(g[0]||[]).length+1;}
+    function lptw(str,ps){return str.toUpperCase().split('').reduce((a,ch)=>a+lpgw(ch)*ps,0)-ps;}
+    function lpdraw(str,x,y,ps,col,shd){
+      let cx2=x;
+      for(const ch of str.toUpperCase()){
+        const g=PG2[ch]||PG2[' '];
+        for(let row=0;row<g.length;row++)for(let cc=0;cc<g[row].length;cc++)if(g[row][cc]){
+          if(shd){ctx.fillStyle=shd;ctx.fillRect(cx2+cc*ps+ps,y+row*ps+ps,ps,ps);}
+          ctx.fillStyle=col;ctx.fillRect(cx2+cc*ps,y+row*ps,ps,ps);
+        }
+        cx2+=lpgw(ch)*ps;
+      }
+    }
+    function lpcenter(str,y,ps,col,shd){lpdraw(str,Math.round(canvas.width/2-lptw(str,ps)/2),y,ps,col,shd);}
+
+    // Pick pixel sizes that fit within card width
+    const maxCardW=Math.min(580,canvas.width*0.85);
+    const innerW=maxCardW-40;
+    // Auto-size title pixel size to fit
+    let tps=Math.max(3,Math.floor(Math.min(6,canvas.width/120)));
+    while(tps>2&&lptw(titleStr,tps)>innerW)tps--;
+    const bps=Math.max(2,Math.floor(tps*0.7)); // body pixel size
+    const sps=Math.max(2,Math.floor(tps*0.55)); // small/score pixel size
+
+    // Word-wrap taunt using pixel font widths
+    const words=game.taunt.toUpperCase().split(' ');
+    const wlines=[];let wline='';
+    for(const w of words){
+      const test=wline?wline+' '+w:w;
+      if(lptw(test,bps)>innerW&&wline){wlines.push(wline);wline=w;}else wline=test;
+    }
+    if(wline)wlines.push(wline);
+
+    const scoreStr=(n+' - 10 INSULATORS   '+game.steps+' STEPS   '+formatTime(game.elapsed)).toUpperCase();
+    // Word-wrap score line too
+    const scoreParts=scoreStr.split('   ');
+    const scoreLines=[];let sline='';
+    for(const p of scoreParts){
+      const test=sline?sline+'  '+p:p;
+      if(lptw(test,sps)>innerW&&sline){scoreLines.push(sline);sline=p;}else sline=test;
+    }
+    if(sline)scoreLines.push(sline);
+
+    const retryStr='PRESS NEW MAZE TO TRY AGAIN';
+    const titleLH=tps*7, bodyLH=bps*7, scoreLH=sps*7;
+    const padV=20, padH=20;
+    const cardH=padV+titleLH+padV/2+wlines.length*bodyLH+padV/2+scoreLines.length*scoreLH+padV/2+sps*7+padV;
+    const cardW=maxCardW;
+    const cx2=canvas.width/2, cy2=canvas.height/2;
+    const bx=cx2-cardW/2, by=cy2-cardH/2;
+
+    // Backdrop
+    ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(0,0,canvas.width,canvas.height);
+    // Shadow
+    ctx.fillStyle='rgba(0,0,0,0.3)';ctx.fillRect(bx+5,by+7,cardW,cardH);
+    // Card body
+    ctx.fillStyle='#0e0010';ctx.fillRect(bx,by,cardW,cardH);
+    // 3-pixel border (red for disq/bottle/timeup)
+    const borderCol=isBottle?'#22aa22':isTimeUp?'#aa6600':'#cc2222';
+    const b=3;
+    ctx.fillStyle=borderCol;
+    ctx.fillRect(bx,by,cardW,b);ctx.fillRect(bx,by+cardH-b,cardW,b);
+    ctx.fillRect(bx,by,b,cardH);ctx.fillRect(bx+cardW-b,by,b,cardH);
+
+    let ty=by+padV;
+    lpcenter(titleStr,ty,tps,'#ff6060','#660000');ty+=titleLH+padV/2;
+    for(const l of wlines){lpcenter(l,ty,bps,'#ffcccc','#330011');ty+=bodyLH;}
+    ty+=padV/2;
+    for(const l of scoreLines){lpcenter(l,ty,sps,'#a0e0ff','#003366');ty+=scoreLH;}
+    ty+=padV/2;
+    // Blinking retry
+    if(Math.floor(Date.now()/500)%2===0){
+      lpcenter(retryStr,ty,sps,'#ff8844',null);
+    }
+  }
+  if(game.darioMsg) renderDarioPopup();
+}
+
+function updateHUD(){
+  const n=game.insulators.filter(i=>i.collected).length;
+  document.getElementById('count').textContent=n+' / '+NUM_INS;
+  document.getElementById('steps').textContent=game.steps;
+  const msg=document.getElementById('msg');
+  if(game.won)msg.textContent='🏆 Off to the National Insulator Association show!';
+  else if(game.lost&&game.taunt==='Time has not been good to you...')msg.textContent='⏰ Time\'s up!';
+  else if(game.lost)msg.textContent='❌ Crossed the flag too soon — press ↺ to try again.';
+  else if(n===NUM_INS)msg.textContent='✅ All 10 collected! Find the checkered flag!';
+  else msg.textContent='Collect all 10 glass insulators, then reach the checkered flag. '+(NUM_INS-n)+' remaining.';
+}
+
+// ─── Tray ────────────────────────────────────────────────────────────────────
+function buildTray(){
+  const tray=document.getElementById('ins-tray');tray.innerHTML='';
+  for(let i=0;i<NUM_INS;i++){
+    const slot=document.createElement('div');slot.className='ins-slot';slot.id='slot-'+i;
+    if(game.insulators[i]){
+      const sz=22;const cv=document.createElement('canvas');cv.width=sz;cv.height=sz;
+      drawInsShape(cv.getContext('2d'),game.insulators[i].type,INS_COLORS[game.insulators[i].type],sz);
+      slot.appendChild(cv);
+    }
+    tray.appendChild(slot);
+  }
+  updateTray();
+}
+function updateTray(){
+  for(let i=0;i<NUM_INS;i++){
+    const slot=document.getElementById('slot-'+i);
+    if(!slot||!game.insulators[i])continue;
+    if(game.insulators[i].collected){
+      slot.classList.add('got');
+      const cv=slot.querySelector('canvas');
+      if(cv){const c2=cv.getContext('2d');c2.clearRect(0,0,22,22);drawInsShape(c2,game.insulators[i].type,INS_COLORS[game.insulators[i].type],22);}
+    } else {
+      slot.classList.remove('got');
+      const cv=slot.querySelector('canvas');
+      if(cv){const c2=cv.getContext('2d');c2.clearRect(0,0,22,22);drawInsShape(c2,game.insulators[i].type,INS_COLORS[game.insulators[i].type],22);}
+    }
+  }
+}
+
+// ─── Movement ────────────────────────────────────────────────────────────────
+function tryMove(dr,dc){
+  if(game.won||game.lost||game.paused)return;
+  let nr=game.player.r+dr, nc=game.player.c+dc;
+
+  // Pac-Man horizontal wrap
+  if(dc!==0 && nr>=0 && nr<ROWS){
+    if(nc<0){
+      // exiting left edge — wrap to right if this is a tunnel row
+      if(game.tunnelRows.includes(nr)&&game.grid[nr][0]===0){
+        nc=COLS-1;
+      } else return;
+    } else if(nc>=COLS){
+      // exiting right edge — wrap to left if this is a tunnel row
+      if(game.tunnelRows.includes(nr)&&game.grid[nr][COLS-1]===0){
+        nc=0;
+      } else return;
+    } else if(game.grid[nr][nc]===1) return;
+  } else {
+    if(nr<0||nr>=ROWS||nc<0||nc>=COLS||game.grid[nr][nc]===1)return;
+  }
+
+  if(!game.startTime) startTimer();
+  game.player.r=nr;game.player.c=nc;game.steps++;
+  for(const ins of game.insulators){
+    if(!ins.collected&&ins.r===nr&&ins.c===nc){ins.collected=true;playChaChingWithSilence();updateTray();}
+  }
+  // Bottle decoy check
+  if(game.bottle&&!game.bottle.hit&&game.bottle.r===nr&&game.bottle.c===nc){
+    game.bottle.hit=true;
+    stopTimer();game.elapsed=Date.now()-game.startTime;
+    game.lost=true;
+    game.taunt="Uh-oh, you've hit the bottle. Try to avoid other hobbies! Try again.";
+    render();updateHUD();return;
+  }
+  // Player walks into Dario
+  if(game.enemy&&game.enemy.r===nr&&game.enemy.c===nc){
+    handleDarioCollision();
+    return;
+  }
+  const[er,ec]=game.exit;
+  if(nr===er&&nc===ec){
+    stopTimer();game.elapsed=Date.now()-game.startTime;
+    const n=game.insulators.filter(i=>i.collected).length;
+    if(n===NUM_INS){game.won=true;stopMusic();stopEnemyInterval();game.elapsed=difficulty==='notimer'?0:(game.startTime?Date.now()-game.startTime:0);}
+    else{game.lost=true;game.taunt=getTaunt(n);}
+  }
+  render();updateHUD();
+}
+
+// ─── Intro music ─────────────────────────────────────────────────────────────
+let introMusicLoop=null, introMusicNodes=[];
+function stopIntroMusic(){
+  if(introMusicLoop){clearInterval(introMusicLoop);introMusicLoop=null;}
+  introMusicNodes.forEach(n=>{try{n.stop();}catch(e){}});
+  introMusicNodes=[];
+}
+function startIntroMusic(){
+  stopIntroMusic();
+  const BPM=148, step=60/BPM/2;
+  const melody=[523,659,784,1047,784,659,523,392,523,659,784,523,659,784,880,1047];
+  const bass=[131,131,165,165,196,196,131,131,131,131,196,131,165,165,196,196];
+  let beat=0, loopStarted=false;
+
+  function tick(){
+    try{
+      const a=AC;
+      if(!a||a.state!=='running')return;
+      const t=a.currentTime+0.01;
+      {const o=a.createOscillator(),g=a.createGain();
+      o.type='square';o.frequency.value=melody[beat%melody.length];
+      g.gain.setValueAtTime(0.07,t);g.gain.exponentialRampToValueAtTime(0.001,t+step*0.85);
+      o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+step);introMusicNodes.push(o);}
+      if(beat%4===0){const o=a.createOscillator(),g=a.createGain();
+        o.type='square';o.frequency.value=bass[beat%bass.length];
+        g.gain.setValueAtTime(0.09,t);g.gain.exponentialRampToValueAtTime(0.001,t+step*1.8);
+        o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+step*2);introMusicNodes.push(o);}
+      if(beat%2===0){const buf=a.createBuffer(1,Math.floor(a.sampleRate*0.03),a.sampleRate);
+        const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+        const s=a.createBufferSource(),g2=a.createGain(),f=a.createBiquadFilter();
+        f.type='highpass';f.frequency.value=9000;
+        s.buffer=buf;g2.gain.setValueAtTime(0.04,t);g2.gain.exponentialRampToValueAtTime(0.001,t+0.03);
+        s.connect(f);f.connect(g2);g2.connect(a.destination);s.start(t);introMusicNodes.push(s);}
+      if(beat%8===0){const o=a.createOscillator(),g=a.createGain();
+        o.type='sine';o.frequency.setValueAtTime(160,t);o.frequency.exponentialRampToValueAtTime(40,t+0.1);
+        g.gain.setValueAtTime(0.4,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.12);
+        o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+0.15);introMusicNodes.push(o);}
+      beat=(beat+1)%melody.length;
+      if(beat===0)introMusicNodes=introMusicNodes.filter(n=>{try{return n.context.state!=='closed';}catch(e){return false;}});
+    }catch(e){}
+  }
+
+  function launch(){
+    if(loopStarted)return;
+    loopStarted=true;
+    try{
+      const a=ac();
+      if(a.state==='suspended')a.resume();
+      tick();
+      introMusicLoop=setInterval(tick, step*1000);
+    }catch(e){}
+  }
+
+  // Try immediate autoplay; attach gesture fallback for browsers that block it
+  try{
+    if(!AC) AC=new(window.AudioContext||window.webkitAudioContext)();
+    if(AC.state==='running'){launch();}
+    else{
+      AC.resume().then(()=>{if(AC.state==='running')launch();}).catch(()=>{});
+      ['pointerdown','keydown','touchstart'].forEach(ev=>
+        document.addEventListener(ev,launch,{once:true,passive:true})
+      );
+    }
+  }catch(e){}
+}
+
+// ─── Start Screen ─────────────────────────────────────────────────────────────
+(function drawStartScreen(){
+  const sc=document.getElementById('start-canvas');
+  const vw=window.innerWidth, vh=window.innerHeight;
+  sc.width=vw; sc.height=vh;
+  const c=sc.getContext('2d');
+  c.fillStyle='#0a0a1a'; c.fillRect(0,0,vw,vh);
+
+  const G={
+    'A':[[0,1,1,0,0],[1,0,0,1,0],[1,1,1,1,0],[1,0,0,1,0],[1,0,0,1,0]],
+    'B':[[1,1,1,0,0],[1,0,0,1,0],[1,1,1,0,0],[1,0,0,1,0],[1,1,1,0,0]],
+    'C':[[0,1,1,1,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[0,1,1,1,0]],
+    'D':[[1,1,1,0,0],[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[1,1,1,0,0]],
+    'E':[[1,1,1,1,0],[1,0,0,0,0],[1,1,1,0,0],[1,0,0,0,0],[1,1,1,1,0]],
+    'F':[[1,1,1,1,0],[1,0,0,0,0],[1,1,1,0,0],[1,0,0,0,0],[1,0,0,0,0]],
+    'G':[[0,1,1,1,0],[1,0,0,0,0],[1,0,1,1,0],[1,0,0,1,0],[0,1,1,1,0]],
+    'H':[[1,0,0,1,0],[1,0,0,1,0],[1,1,1,1,0],[1,0,0,1,0],[1,0,0,1,0]],
+    'I':[[1,1,1,0,0],[0,1,0,0,0],[0,1,0,0,0],[0,1,0,0,0],[1,1,1,0,0]],
+    'J':[[0,0,1,1,0],[0,0,0,1,0],[0,0,0,1,0],[1,0,0,1,0],[0,1,1,0,0]],
+    'K':[[1,0,0,1,0],[1,0,1,0,0],[1,1,0,0,0],[1,0,1,0,0],[1,0,0,1,0]],
+    'L':[[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,0]],
+    'M':[[1,0,0,0,1],[1,1,0,1,1],[1,0,1,0,1],[1,0,0,0,1],[1,0,0,0,1]],
+    'N':[[1,0,0,1,0],[1,1,0,1,0],[1,0,1,1,0],[1,0,0,1,0],[1,0,0,1,0]],
+    'O':[[0,1,1,0,0],[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[0,1,1,0,0]],
+    'P':[[1,1,1,0,0],[1,0,0,1,0],[1,1,1,0,0],[1,0,0,0,0],[1,0,0,0,0]],
+    'Q':[[0,1,1,0,0],[1,0,0,1,0],[1,0,0,1,0],[1,0,1,1,0],[0,1,1,1,0]],
+    'R':[[1,1,1,0,0],[1,0,0,1,0],[1,1,1,0,0],[1,0,1,0,0],[1,0,0,1,0]],
+    'S':[[0,1,1,1,0],[1,0,0,0,0],[0,1,1,0,0],[0,0,0,1,0],[1,1,1,0,0]],
+    'T':[[1,1,1,1,1],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]],
+    'U':[[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[0,1,1,0,0]],
+    'V':[[1,0,0,0,1],[1,0,0,0,1],[0,1,0,1,0],[0,1,0,1,0],[0,0,1,0,0]],
+    'W':[[1,0,0,0,1],[1,0,0,0,1],[1,0,1,0,1],[1,1,0,1,1],[1,0,0,0,1]],
+    'X':[[1,0,0,0,1],[0,1,0,1,0],[0,0,1,0,0],[0,1,0,1,0],[1,0,0,0,1]],
+    'Y':[[1,0,0,0,1],[0,1,0,1,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]],
+    'Z':[[1,1,1,1,0],[0,0,0,1,0],[0,0,1,0,0],[0,1,0,0,0],[1,1,1,1,0]],
+    '0':[[0,1,1,0,0],[1,0,0,1,0],[1,0,0,1,0],[1,0,0,1,0],[0,1,1,0,0]],
+    '1':[[0,1,0,0,0],[1,1,0,0,0],[0,1,0,0,0],[0,1,0,0,0],[1,1,1,0,0]],
+    '2':[[0,1,1,0,0],[1,0,0,1,0],[0,0,1,0,0],[0,1,0,0,0],[1,1,1,1,0]],
+    '3':[[1,1,1,0,0],[0,0,0,1,0],[0,1,1,0,0],[0,0,0,1,0],[1,1,1,0,0]],
+    '4':[[1,0,1,0,0],[1,0,1,0,0],[1,1,1,1,0],[0,0,1,0,0],[0,0,1,0,0]],
+    '5':[[1,1,1,1,0],[1,0,0,0,0],[1,1,1,0,0],[0,0,0,1,0],[1,1,1,0,0]],
+    '6':[[0,1,1,0,0],[1,0,0,0,0],[1,1,1,0,0],[1,0,0,1,0],[0,1,1,0,0]],
+    '7':[[1,1,1,1,0],[0,0,0,1,0],[0,0,1,0,0],[0,1,0,0,0],[0,1,0,0,0]],
+    '8':[[0,1,1,0,0],[1,0,0,1,0],[0,1,1,0,0],[1,0,0,1,0],[0,1,1,0,0]],
+    '9':[[0,1,1,0,0],[1,0,0,1,0],[0,1,1,1,0],[0,0,0,1,0],[0,1,1,0,0]],
+    '!':[[0,1,0],[0,1,0],[0,1,0],[0,0,0],[0,1,0]],
+    '.':[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,1,0]],
+    ' ':[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],
+  };
+  function gw(ch){const g=G[ch.toUpperCase()]||G[' '];return g[0].length+1;}
+  function tw(str,ps){return str.toUpperCase().split('').reduce((a,ch)=>a+gw(ch)*ps,0)-ps;}
+  function pxDraw(str,x,y,ps,col,shd){
+    let cx=x;
+    for(const ch of str.toUpperCase()){
+      const g=G[ch]||G[' '];
+      for(let r=0;r<g.length;r++)for(let cc=0;cc<g[r].length;cc++)if(g[r][cc]){
+        if(shd){c.fillStyle=shd;c.fillRect(cx+cc*ps+ps,y+r*ps+ps,ps,ps);}
+        c.fillStyle=col;c.fillRect(cx+cc*ps,y+r*ps,ps,ps);
+      }
+      cx+=gw(ch)*ps;
+    }
+  }
+  function pxCenter(str,y,ps,col,shd){pxDraw(str,Math.round(vw/2-tw(str,ps)/2),y,ps,col,shd);}
+
+  // ── Insulator border — no overlap ──────────────────────────────────────────
+  const INS_COL=[
+    {fill:'#5DCAA5',dome:'#1D9E75',cap:'#9FE1CB',stroke:'#0F6E56',pin:'#085041'},
+    {fill:'#378ADD',dome:'#185FA5',cap:'#B5D4F4',stroke:'#0C447C',pin:'#042C53'},
+    {fill:'#EF9F27',dome:'#BA7517',cap:'#FAC775',stroke:'#854F0B',pin:'#633806'},
+    {fill:'#D4537E',dome:'#993556',cap:'#ED93B1',stroke:'#72243E',pin:'#4B1528'},
+    {fill:'#AFA9EC',dome:'#534AB7',cap:'#CECBF6',stroke:'#3C3489',pin:'#26215C'},
+  ];
+  // Fit an integer number of insulators exactly across each edge
+  const MAX_ISZ=Math.min(52, Math.floor(vw/16));
+  const MIN_ISZ=28;
+  // Find largest ISZ where both H and V edges divide cleanly (no partial overlap)
+  let ISZ=MAX_ISZ;
+  // Just use floor division — space evenly so no partial insulator bleeds off
+  const hCount=Math.floor(vw/MAX_ISZ);   // how many fit horizontally
+  const vCount=Math.floor(vh/MAX_ISZ);   // how many fit vertically
+  ISZ=Math.max(MIN_ISZ, Math.min(MAX_ISZ, Math.floor(vw/hCount)));
+  const hStep=vw/hCount;
+  const vStep=vh/vCount;
+
+  function drawMiniIns(cx,cy,sz,col){
+    const s=sz/22; c.save(); c.translate(cx,cy); c.scale(s,s);
+    c.beginPath();c.moveTo(1,20);c.quadraticCurveTo(1,17,4,16);c.lineTo(4,14);c.quadraticCurveTo(1,13,1,11);c.quadraticCurveTo(1,8,9,8);c.quadraticCurveTo(17,8,17,11);c.quadraticCurveTo(17,13,14,14);c.lineTo(14,16);c.quadraticCurveTo(17,17,17,20);c.closePath();
+    c.fillStyle=col.fill;c.strokeStyle=col.stroke;c.lineWidth=1.2/s;c.fill();c.stroke();
+    c.beginPath();c.moveTo(4,14);c.quadraticCurveTo(4,10,9,6);c.quadraticCurveTo(14,10,14,14);c.closePath();
+    c.fillStyle=col.dome;c.strokeStyle=col.stroke;c.lineWidth=1/s;c.fill();c.stroke();
+    c.beginPath();c.ellipse(9,6,3,2,0,0,Math.PI*2);c.fillStyle=col.cap;c.strokeStyle=col.stroke;c.lineWidth=0.8/s;c.fill();c.stroke();
+    c.beginPath();c.ellipse(9,20,2.5,1.2,0,0,Math.PI*2);c.fillStyle=col.pin;c.strokeStyle=col.stroke;c.lineWidth=0.8/s;c.fill();c.stroke();
+    c.restore();
+  }
+  // Top and bottom rows
+  for(let i=0;i<hCount;i++){
+    const x=i*hStep; const col=INS_COL[i%INS_COL.length];
+    drawMiniIns(x, 0,       ISZ, col);
+    drawMiniIns(x, vh-ISZ,  ISZ, col);
+  }
+  // Left and right columns (skip corners already drawn)
+  for(let i=1;i<vCount-1;i++){
+    const y=i*vStep; const col=INS_COL[i%INS_COL.length];
+    drawMiniIns(0,      y, ISZ, col);
+    drawMiniIns(vw-ISZ, y, ISZ, col);
+  }
+
+  // ── Content block — vertically centered between borders ───────────────────
+  const pad=ISZ+6;
+  const contentW=vw-pad*2;
+  const innerTop=ISZ, innerBot=vh-ISZ;
+  const innerH=innerBot-innerTop;
+
+  // Font sizes
+  const tps=Math.max(4,Math.min(10,Math.floor(contentW/88)));
+  const ps2=Math.max(2,Math.floor(tps*0.55));
+  const ps3=Math.max(2,Math.floor(tps*0.44));
+  const psCopy=Math.max(2,Math.floor(tps*0.38));
+
+  // All text lines and their heights
+  const titleH=tps*5+tps*3;
+  const lineH2=ps2*5+ps2*3;
+  const lineH3=ps3*5+ps3*3;
+  const selectH=ps2*5+ps2*3;
+  const copyH=psCopy*5+psCopy*3;
+  const btnH=52;
+  const gap=Math.floor(innerH*0.04);
+
+  // Block: title1, title2, sub1, sub2, sub3, gap, SELECT MODE, buttons, copyright
+  const blockH = titleH*2 + gap + lineH2*4 + gap*2 + selectH + gap/2 + btnH + gap + copyH;
+  const blockTop = innerTop + Math.floor((innerH - blockH)/2);
+
+  let y=blockTop;
+  pxCenter('TO THE',     y,           tps,'#f8e84a','#b86a00'); y+=titleH;
+  pxCenter('NATIONAL!',  y,           tps,'#ff6060','#8a0000'); y+=titleH+gap;
+  pxCenter('COLLECT ALL 10 INSULATORS', y,          ps2,'#a0e0ff','#003366'); y+=lineH2;
+  pxCenter('REACH THE CHECKERED FLAG',  y,          ps2,'#a0e0ff','#003366'); y+=lineH2;
+  pxCenter('AVOID THE GLASS BOTTLES!',  y,          ps3,'#5DCAA5','#083a28'); y+=lineH2;
+  pxCenter('AND DARIO!',                y,          ps3,'#ff6060','#8a0000'); y+=lineH2+gap*2;
+  pxCenter('SELECT MODE',               y,          ps2,'#f8e84a',null);
+
+  // Position diff-row buttons just below SELECT MODE + a gap
+  const diffRow=document.getElementById('diff-row');
+  const btnTop=y+selectH+Math.floor(gap/2);
+  diffRow.style.bottom='auto';
+  diffRow.style.top=btnTop+'px';
+  diffRow.style.position='absolute';
+  diffRow.style.left='0'; diffRow.style.right='0';
+
+  // Copyright lines below buttons
+  const copyY=btnTop+btnH+gap;
+  pxCenter('OPEN GAMES  PUBLIC DOMAIN  2026', copyY, psCopy,'#444466',null);
+  pxCenter('OPENFOREVER.ORG', copyY+copyH+psCopy*2, psCopy,'#444466',null);
+})();
+
+startIntroMusic();
+
+function startGame(diff){
+  difficulty=diff;
+  stopIntroMusic();
+  document.getElementById('start-screen').classList.add('hidden');
+  // Set timer display initial value
+  if(diff==='notimer'){document.getElementById('timer-wrap').style.display='none';}
+  else{document.getElementById('timer').textContent=formatTime(diffSeconds()*1000);}
+  game=initMaze();render();buildTray();updateHUD();
+  startEnemyInterval();
+  if(musicOn)startMusic();
+  canvas.focus();
+}
+
+document.getElementById('btn-easy').onclick=()=>startGame('easy');
+document.getElementById('btn-hard').onclick=()=>startGame('hard');
+document.getElementById('btn-notimer').onclick=()=>startGame('notimer');
+
+document.getElementById('btn-restart').onclick=()=>{
+  stopTimer();stopMusic();stopCelebration();stopEnemyInterval();
+  // Reset timer display
+  if(difficulty!=='notimer')document.getElementById('timer').textContent=formatTime(diffSeconds()*1000);
+  game=initMaze();render();buildTray();updateHUD();
+  startEnemyInterval();
+  if(musicOn)startMusic();
+};
+
+document.getElementById('music-btn').onclick=()=>{
+  musicOn=!musicOn;
+  document.getElementById('music-btn').textContent='♪ '+(musicOn?'ON':'OFF');
+  if(musicOn)startMusic();else stopMusic();
+};
+
+// ─── Controls ────────────────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(!game)return;
+  // Dario popup dismiss
+  if(game.darioMsg&&game.darioMsg.phase==='show'){
+    e.preventDefault();
+    startDarioDissolve();
+    return;
+  }
+  const m={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
+  if(m[e.key]){e.preventDefault();tryMove(...m[e.key]);}
+});
+canvas.addEventListener('click',()=>{
+  if(!game)return;
+  if(game.darioMsg&&game.darioMsg.phase==='show') startDarioDissolve();
+});
+document.getElementById('btn-up').onclick=()=>{if(game)tryMove(-1,0);};
+document.getElementById('btn-down').onclick=()=>{if(game)tryMove(1,0);};
+document.getElementById('btn-left').onclick=()=>{if(game)tryMove(0,-1);};
+document.getElementById('btn-right').onclick=()=>{if(game)tryMove(0,1);};
+
+// Start music on first interaction — handled by startGame(); no extra listener needed.
+
+// Recompute on window resize
+let resizeTimer;
+window.addEventListener('resize',()=>{
+  clearTimeout(resizeTimer);
+  resizeTimer=setTimeout(()=>{
+    if(!game)return;
+    stopTimer();stopMusic();stopEnemyInterval();
+    Object.keys(insCache).forEach(k=>delete insCache[k]);
+    computeDimensions();
+    game=initMaze();render();buildTray();updateHUD();
+    startEnemyInterval();
+    if(difficulty!=='notimer')document.getElementById('timer').textContent=formatTime(diffSeconds()*1000);
+    if(musicOn)startMusic();
+  },200);
+});
+</script>
+</body>
+</html>
